@@ -1,0 +1,16 @@
+import pygame
+
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 500
+FPS = 60
+
+# Bảng màu
+CYBER_BLUE = (0, 220, 255)
+CYBER_PINK = (255, 0, 128)
+CYBER_YELLOW = (255, 220, 0)
+DARK_BG = (15, 15, 25)
+WHITE = (255, 255, 255)
+RED = (255, 50, 50)
+GREEN = (50, 255, 50)
+ORANGE = (255, 140, 0)
+
