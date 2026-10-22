@@ -1,11 +1,11 @@
-import pygame
+import pygamedsdsd
 import os
 
 # 1. Khoi tao am thanh
 pygame.mixer.init()
 
 # Thu muc noi sound.py dang dung
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__fidsdsle__))
 
 # 2. Ham phat am thanh tu file
 def play(file_name):
