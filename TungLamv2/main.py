@@ -2,6 +2,7 @@ import math
 import os
 import random
 import sys
+import asyncio
 import pygame
 import sound
 
@@ -1165,116 +1166,125 @@ def handle_mouse_down(event):
                 scope_level = (scope_level + 1) % (n + 1)  # 0 → 1 → ... → 0
                 player.scoped = (scope_level > 0)
 
-# KHỞI ĐỘNG & VÒNG LẶP CHÍNH
-reset_round()
-game_state = "MENU"
-set_mouse_mode(True)
+async def main():
+    global running, game_state, round_end_timer, match_over_screenshot_taken
+    global buy_timer, round_timer, notice_timer, hit_flash_timer, knife_swing, bomb_fuse, held_item, spike_timer, scope_level, shop_open
 
-while running:
-    dt = clock.tick(FPS) / 1000.0
-    in_play = game_state in ("BUY", "ROUND", "ROUND_END")
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            handle_keydown(event.key)
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            handle_mouse_down(event)
-    if game_state == "ROUND" and not shop_open and player.alive and not player.reloading:
-        if player.weapon in AUTO_GUNS and pygame.mouse.get_pressed()[0]:
-            player_shoot()
-    notice_timer = max(0.0, notice_timer - dt)
-    if game_state == "BUY":
-        buy_timer -= dt
-        if buy_timer <= 0:
-            game_state = "ROUND"
-            round_timer = ROUND_TIME
-            notice("VÒNG ĐẤU BẮT ĐẦU!", 2.0)
-    if shop_open and game_state != "BUY":
-        toggle_shop(False)
-    if game_state not in ("MATCH_OVER", "MENU"):
-        if not shop_open:
-            update_player_movement(dt)
-            player.look(*pygame.mouse.get_rel(), sensitivity=0.0025)
-        player.update_vertical(dt)
-        if player.reloading and pygame.time.get_ticks() / 1000.0 - player.reload_start >= player.reload_time:
-            amt = min(player.max_magazine - player.magazine, player.reserve)
-            player.magazine += amt
-            player.reserve -= amt
-            player.reloading = False
-            store_ammo()
-        player.recoil = max(0.0, player.recoil - dt * 0.25)
-        hit_flash_timer = max(0.0, hit_flash_timer - dt)
-        knife_swing = max(0.0, knife_swing - dt)
-        player.knife_swing = knife_swing
-        game_view.update_vfx(dt)
-        if game_state != "BUY":  # địch bị chặn bởi barrier trong buy phase
-            update_enemies(dt)
-        update_projectiles(dt)
-        update_zones(dt)
-        if game_state == "ROUND" and held_item == "BOMB" and player.alive:
-            bomb_fuse -= dt
-            if bomb_fuse <= 0:
-                grenades["BOMB"] -= 1
-                held_item = None
-                explode(player.x, player.y)
-        if game_state == "ROUND":
-            if not spike_planted:
-                round_timer -= dt
-                if round_timer <= 0:
-                    end_round(False)
-            else:
-                spike_timer += dt
-                if spike_timer >= SPIKE_TIME:
-                    end_round(True)
+    # KHỞI ĐỘNG & VÒNG LẶP CHÍNH
+    reset_round()
+    game_state = "MENU"
+    set_mouse_mode(True)
+    
+    while running:
+        dt = clock.tick(FPS) / 1000.0
+        in_play = game_state in ("BUY", "ROUND", "ROUND_END")
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                handle_keydown(event.key)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                handle_mouse_down(event)
+        if game_state == "ROUND" and not shop_open and player.alive and not player.reloading:
+            if player.weapon in AUTO_GUNS and pygame.mouse.get_pressed()[0]:
+                player_shoot()
+        notice_timer = max(0.0, notice_timer - dt)
+        if game_state == "BUY":
+            buy_timer -= dt
+            if buy_timer <= 0:
+                game_state = "ROUND"
+                round_timer = ROUND_TIME
+                notice("VÒNG ĐẤU BẮT ĐẦU!", 2.0)
+        if shop_open and game_state != "BUY":
+            toggle_shop(False)
+        if game_state not in ("MATCH_OVER", "MENU"):
+            if not shop_open:
+                update_player_movement(dt)
+                player.look(*pygame.mouse.get_rel(), sensitivity=0.0025)
+            player.update_vertical(dt)
+            if player.reloading and pygame.time.get_ticks() / 1000.0 - player.reload_start >= player.reload_time:
+                amt = min(player.max_magazine - player.magazine, player.reserve)
+                player.magazine += amt
+                player.reserve -= amt
+                player.reloading = False
+                store_ammo()
+            player.recoil = max(0.0, player.recoil - dt * 0.25)
+            hit_flash_timer = max(0.0, hit_flash_timer - dt)
+            knife_swing = max(0.0, knife_swing - dt)
+            player.knife_swing = knife_swing
+            game_view.update_vfx(dt)
+            if game_state != "BUY":  # địch bị chặn bởi barrier trong buy phase
+                update_enemies(dt)
+            update_projectiles(dt)
+            update_zones(dt)
+            if game_state == "ROUND" and held_item == "BOMB" and player.alive:
+                bomb_fuse -= dt
+                if bomb_fuse <= 0:
+                    grenades["BOMB"] -= 1
+                    held_item = None
+                    explode(player.x, player.y)
             if game_state == "ROUND":
-                if not player.alive:
-                    end_round(False)
-                elif not any(e.alive for e in enemies):
-                    end_round(True)
-        elif game_state == "ROUND_END":
-            # Giai đoạn nghỉ: được di chuyển, nhặt/vứt súng; hết 5 giây mới sang round mới
-            round_end_timer -= dt
-            if round_end_timer <= 0:
-                reset_round(pending_winner)
-    if game_state == "MENU":
-        draw_menu()
-    else:
-        smokes = [z for z in zones if z.get("kind") == "SMOKE"]
-        fires = [z for z in zones if z.get("kind") == "FIRE"]
-        # GameView chỉ biết BUY/ROUND/MATCH_OVER -> ROUND_END vẽ như ROUND
-        view_state = "ROUND" if game_state == "ROUND_END" else game_state
-        game_view.render_frame(
-            player, [] if game_state == "BUY" else enemies, walls, renderer, minimap, hud,
-            get_camera_horizon(), view_state, round_timer, buy_timer,
-            player_score, enemy_score, spike_carried, spike_planted,
-            spike_timer, SPIKE_TIME, hit_flash_timer, match_winner,
-            smokes=smokes, fires=fires,
-            bomb_fuse=(bomb_fuse if held_item == "BOMB" else None),
-            dropped_weapons=dropped_weapons,
-        )
-        if in_play:
-            draw_effects()
-            if player.alive:
-                if held_item:
-                    draw_held_item()
-                elif scope_level > 0 and player.weapon in SCOPE_WEAPONS:
-                    draw_scope()
-            draw_weapon_slots()
-            if player.alive and not shop_open:
-                draw_pickup_prompt()
-            if game_state == "ROUND_END":
-                draw_round_end_banner()
-        if game_state == "MATCH_OVER":
-            draw_text("Enter: Chơi lại   |   ESC: Về menu", font_small, (220, 220, 230),
-                      center=(WIDTH // 2, HEIGHT - 40))
-        if shop_open:
-            draw_shop()
-        draw_notice()
-    if game_state == "MATCH_OVER" and not match_over_screenshot_taken:
-        save_screenshot("match_over")
-        match_over_screenshot_taken = True
-    pygame.display.flip()
+                if not spike_planted:
+                    round_timer -= dt
+                    if round_timer <= 0:
+                        end_round(False)
+                else:
+                    spike_timer += dt
+                    if spike_timer >= SPIKE_TIME:
+                        end_round(True)
+                if game_state == "ROUND":
+                    if not player.alive:
+                        end_round(False)
+                    elif not any(e.alive for e in enemies):
+                        end_round(True)
+            elif game_state == "ROUND_END":
+                # Giai đoạn nghỉ: được di chuyển, nhặt/vứt súng; hết 5 giây mới sang round mới
+                round_end_timer -= dt
+                if round_end_timer <= 0:
+                    reset_round(pending_winner)
+        if game_state == "MENU":
+            draw_menu()
+        else:
+            smokes = [z for z in zones if z.get("kind") == "SMOKE"]
+            fires = [z for z in zones if z.get("kind") == "FIRE"]
+            # GameView chỉ biết BUY/ROUND/MATCH_OVER -> ROUND_END vẽ như ROUND
+            view_state = "ROUND" if game_state == "ROUND_END" else game_state
+            game_view.render_frame(
+                player, [] if game_state == "BUY" else enemies, walls, renderer, minimap, hud,
+                get_camera_horizon(), view_state, round_timer, buy_timer,
+                player_score, enemy_score, spike_carried, spike_planted,
+                spike_timer, SPIKE_TIME, hit_flash_timer, match_winner,
+                smokes=smokes, fires=fires,
+                bomb_fuse=(bomb_fuse if held_item == "BOMB" else None),
+                dropped_weapons=dropped_weapons,
+            )
+            if in_play:
+                draw_effects()
+                if player.alive:
+                    if held_item:
+                        draw_held_item()
+                    elif scope_level > 0 and player.weapon in SCOPE_WEAPONS:
+                        draw_scope()
+                draw_weapon_slots()
+                if player.alive and not shop_open:
+                    draw_pickup_prompt()
+                if game_state == "ROUND_END":
+                    draw_round_end_banner()
+            if game_state == "MATCH_OVER":
+                draw_text("Enter: Chơi lại   |   ESC: Về menu", font_small, (220, 220, 230),
+                          center=(WIDTH // 2, HEIGHT - 40))
+            if shop_open:
+                draw_shop()
+            draw_notice()
+        if game_state == "MATCH_OVER" and not match_over_screenshot_taken:
+            save_screenshot("match_over")
+            match_over_screenshot_taken = True
+        pygame.display.flip()
+    
+        await asyncio.sleep(0)
 
-pygame.quit()
-sys.exit()
+    pygame.quit()
+    sys.exit()
+
+if __name__ == '__main__':
+    asyncio.run(main())

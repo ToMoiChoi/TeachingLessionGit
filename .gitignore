@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+web-cache/
+*/build/web-cache/
+screenshots/
+*/screenshots/
