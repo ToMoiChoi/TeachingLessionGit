@@ -1,3 +1,4 @@
+import asyncio
 import pygame
 import random
 import math
@@ -804,7 +805,7 @@ class BladeMaster:
             draw_gameover(self.screen, self)
         pygame.display.flip()
 
-    def run(self):
+    async def run(self):
         running = True
         while running:
             dt = self.clock.tick(FPS) / 1000
@@ -820,10 +821,11 @@ class BladeMaster:
 
             self.update(dt)
             self.render()
+            await asyncio.sleep(0)
 
         pygame.quit()
         sys.exit()
 
 if __name__ == "__main__":
     game = BladeMaster()
-    game.run()
+    asyncio.run(game.run())

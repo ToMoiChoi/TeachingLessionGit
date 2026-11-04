@@ -1,6 +1,9 @@
 WIDTH = 1600
 HEIGHT = 900
-FPS = 120
+import sys
+
+# Trên web (pygbag) trình duyệt chỉ vẽ ~60 khung/giây, đặt 120 chỉ làm nặng thêm
+FPS = 60 if sys.platform == "emscripten" else 120
 
 MAP_W = 1800
 MAP_H = 1200

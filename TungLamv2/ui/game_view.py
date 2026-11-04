@@ -370,9 +370,12 @@ class GameView:
             prog = age / t["duration"]
             bx = self.muzzle_x + (t["end"][0] - self.muzzle_x) * prog
             by = self.muzzle_y + (t["end"][1] - self.muzzle_y) * prog
-            trail = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            pygame.draw.line(trail, (255, 235, 160, max(0, 255 - int(255 * prog))), (self.muzzle_x, self.muzzle_y), (bx, by), 2)
-            self.screen.blit(trail, (0, 0))
+            # Chỉ tạo surface vừa khít tia đạn, không tạo surface cả màn hình mỗi frame
+            left, top = int(min(self.muzzle_x, bx)) - 2, int(min(self.muzzle_y, by)) - 2
+            trail = pygame.Surface((int(abs(bx - self.muzzle_x)) + 5, int(abs(by - self.muzzle_y)) + 5), pygame.SRCALPHA)
+            pygame.draw.line(trail, (255, 235, 160, max(0, 255 - int(255 * prog))),
+                             (self.muzzle_x - left, self.muzzle_y - top), (bx - left, by - top), 2)
+            self.screen.blit(trail, (left, top))
             pygame.draw.circle(self.screen, (255, 255, 225), (int(bx), int(by)), 3)
 
         # 5. Lửa đầu nòng (Muzzle flash)

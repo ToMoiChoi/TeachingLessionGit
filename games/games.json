@@ -1,0 +1,29 @@
+[
+  {
+    "id": "tunglamv2",
+    "title": "Lotus Tactical FPS",
+    "author": "Tùng Lâm",
+    "description": "Game bắn súng góc nhìn thứ nhất, phong cách chiến thuật.",
+    "tag": "FPS",
+    "emoji": "🎯",
+    "color": "#e8590c"
+  },
+  {
+    "id": "baonam",
+    "title": "Blade Master 2D",
+    "author": "Bảo Nam",
+    "description": "Game đối kháng 2D: chọn bản đồ, nhân vật, mua đồ trong shop rồi chiến.",
+    "tag": "Đối kháng",
+    "emoji": "⚔️",
+    "color": "#2f9e44"
+  },
+  {
+    "id": "cyberesc",
+    "title": "CyberEsc",
+    "author": "cyberesc",
+    "description": "Game platformer 2D phong cách Cyberpunk, vượt qua nhiều màn chơi.",
+    "tag": "Platformer",
+    "emoji": "🤖",
+    "color": "#7048e8"
+  }
+]

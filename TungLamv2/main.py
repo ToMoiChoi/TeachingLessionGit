@@ -740,11 +740,20 @@ def draw_held_item():
     pygame.draw.circle(screen, (30, 32, 40), (cx, cy), 36, 4)
     draw_text(GRENADE_LABEL[held_item], font_mid, (255, 255, 255), center=(cx, cy))
 
+_SCOPE_CACHE = {}
+
 def draw_scope():
     cfg = SCOPE_CONFIG[player.weapon]
     zoom = cfg["levels"][scope_level - 1]
     cx, cy = WIDTH // 2, HEIGHT // 2
+    # Lớp ống ngắm chỉ phụ thuộc loại (sáng/tối) -> vẽ 1 lần rồi dùng lại, không tạo mới mỗi frame
+    surf = _SCOPE_CACHE.get(cfg["dark"])
+    if surf is not None:
+        screen.blit(surf, (0, 0))
+        draw_text(f"{zoom:.2g}x", font_mid, (220, 255, 180), topright=(WIDTH - 24, 24))
+        return
     surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    _SCOPE_CACHE[cfg["dark"]] = surf
     if not cfg["dark"]:  # SMG / Rifle: dây ngắm ADS
         gap, arm, col = 12, 20, (255, 255, 255, 200)
         for p1, p2 in (((cx - gap - arm, cy), (cx - gap, cy)), ((cx + gap, cy), (cx + gap + arm, cy)),
@@ -858,6 +867,9 @@ def update_zones(dt):
                 burn_area(z["x"], z["y"], z["r"], random.randint(1, 2))
 
 def draw_effects():
+    # Không có khói/lửa/lựu đạn thì bỏ qua, tránh xóa + vẽ lớp trong suốt cả màn hình mỗi frame
+    if not zones and not projectiles:
+        return
     fx_surface.fill((0, 0, 0, 0))
     in_smoke = False
     for z in zones:

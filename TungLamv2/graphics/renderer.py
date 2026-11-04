@@ -1,5 +1,6 @@
 import pygame
 import math
+import sys
 
 from settings import (
     WIDTH,
@@ -18,7 +19,8 @@ class Renderer:
         # RAYCAST SETTINGS
         # ==========================================
 
-        self.num_rays = 240
+        # Trên web (pygbag) Python chậm hơn nhiều -> dùng ít tia hơn
+        self.num_rays = 160 if sys.platform == "emscripten" else 240
 
         self.fov = math.radians(FOV)
 
@@ -27,6 +29,14 @@ class Renderer:
         ) / math.tan(
             self.fov / 2
         )
+
+        # Tính sẵn góc lệch + hệ số chống mắt cá cho từng tia (không đổi giữa các frame)
+        tan_half = math.tan(self.fov / 2)
+        self.ray_offsets = [
+            math.atan(((i / self.num_rays) - 0.5) * 2 * tan_half)
+            for i in range(self.num_rays)
+        ]
+        self.ray_cos = [math.cos(a) for a in self.ray_offsets]
 
         # ==========================================
         # CAMERA
@@ -55,40 +65,67 @@ class Renderer:
         walls
     ):
 
+        # Tính thẳng giao điểm tia với từng hình chữ nhật (slab method)
+        # thay vì nhích từng 20px rồi dò mọi bức tường -> nhanh hơn ~40 lần,
+        # rất quan trọng khi chạy trên web (pygbag chậm hơn desktop nhiều).
+
         dx = math.cos(angle)
         dy = math.sin(angle)
 
-        depth = 0
+        px = player.x
+        py = player.y
 
-        max_depth = max(
-            MAP_W,
-            MAP_H
-        )
+        # Cạnh các bức tường dạng tuple, tính 1 lần (đọc tuple nhanh hơn
+        # đọc wall.left/right/... của Rect hàng nghìn lần mỗi frame)
+        key = (id(walls), len(walls))
+        if getattr(self, "_wall_key", None) != key:
+            self._wall_key = key
+            self._wall_edges = [(w.left, w.right, w.top, w.bottom) for w in walls]
 
-        while depth < max_depth:
+        best = MAP_W if MAP_W > MAP_H else MAP_H
 
-            x = player.x + dx * depth
-            y = player.y + dy * depth
+        if abs(dx) > 1e-9 and abs(dy) > 1e-9:
+            ix = 1.0 / dx
+            iy = 1.0 / dy
+            for left, right, top, bottom in self._wall_edges:
+                t1 = (left - px) * ix
+                t2 = (right - px) * ix
+                if t1 > t2:
+                    t1, t2 = t2, t1
+                t3 = (top - py) * iy
+                t4 = (bottom - py) * iy
+                if t3 > t4:
+                    t3, t4 = t4, t3
+                t_enter = t1 if t1 > t3 else t3
+                t_exit = t2 if t2 < t4 else t4
+                if t_exit < 0 or t_enter > t_exit:
+                    continue
+                if t_enter < 0:
+                    t_enter = 0
+                if t_enter < best:
+                    best = t_enter
+            return best
 
-            # Ra ngoài map
-            if x < 0 or y < 0:
-                return depth
-
-            if x >= MAP_W or y >= MAP_H:
-                return depth
-
-            # Kiểm tra tường
-            for wall in walls:
-
-                if wall.collidepoint(
-                    int(x),
-                    int(y)
-                ):
-                    return depth
-
-            depth += 20
-
-        return depth
+        # Tia song song trục X hoặc Y (hiếm gặp)
+        for left, right, top, bottom in self._wall_edges:
+            if abs(dx) > 1e-9:
+                if py < top or py >= bottom:
+                    continue
+                t1 = (left - px) / dx
+                t2 = (right - px) / dx
+            else:
+                if px < left or px >= right:
+                    continue
+                t1 = (top - py) / dy
+                t2 = (bottom - py) / dy
+            if t1 > t2:
+                t1, t2 = t2, t1
+            if t2 < 0:
+                continue
+            hit = t1 if t1 > 0 else 0
+            if hit < best:
+                best = hit
+        return best
 
     # =====================================================
     # CAMERA HEIGHT
@@ -393,33 +430,7 @@ class Renderer:
             # CAMERA X
             # ======================================
 
-            camera_x = (
-                i
-                /
-                self.num_rays
-            ) - 0.5
-
-            # ======================================
-            # RAY ANGLE
-            # ======================================
-
-            ray_angle = (
-                player.angle
-                +
-                math.atan(
-                    camera_x
-                    *
-                    2
-                    *
-                    math.tan(
-                        self.fov / 2
-                    )
-                )
-            )
-
-            # ======================================
-            # RAYCAST
-            # ======================================
+            ray_angle = player.angle + self.ray_offsets[i]
 
             distance = self.raycast(
                 player,
@@ -431,11 +442,7 @@ class Renderer:
             # FISH-EYE CORRECTION
             # ======================================
 
-            distance *= math.cos(
-                ray_angle
-                -
-                player.angle
-            )
+            distance *= self.ray_cos[i]
 
             distance = max(
                 distance,
@@ -503,21 +510,8 @@ class Renderer:
             # DRAW WALL
             # ======================================
 
-            pygame.draw.rect(
-                screen,
+            # screen.fill nhanh hơn pygame.draw.rect cho hình chữ nhật đặc
+            screen.fill(
                 color,
-                (
-                    int(
-                        i
-                        *
-                        ray_width
-                    ),
-                    top,
-                    int(
-                        ray_width
-                        +
-                        1
-                    ),
-                    wall_height
-                )
+                (int(i * ray_width), top, int(ray_width + 1), wall_height)
             )

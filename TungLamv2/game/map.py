@@ -54,23 +54,12 @@ def is_blocked(rect):
 
 def line_blocked(x1, y1, x2, y2):
 
-    distance = ((x2-x1)**2 + (y2-y1)**2) ** 0.5
-
-    steps = max(1, int(distance / 16))
-
-    dx = (x2 - x1) / steps
-    dy = (y2 - y1) / steps
-
-    x = x1
-    y = y1
-
-    for _ in range(steps):
-
-        x += dx
-        y += dy
-
-        for wall in walls:
-            if wall.collidepoint(x, y):
+    # clipline cắt đoạn thẳng với hình chữ nhật (chạy bằng C) -> nhanh hơn
+    # nhiều so với nhích từng 16px và dò mọi bức tường.
+    # Bỏ qua tường mà điểm đầu đang đứng sát/trong (giống bản cũ chỉ xét từ bước đầu).
+    for wall in walls:
+        if wall.clipline(x1, y1, x2, y2):
+            if not wall.collidepoint(x1, y1):
                 return True
 
     return False
