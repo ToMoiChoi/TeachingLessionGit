@@ -79,7 +79,7 @@ function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.
 function render(games) {
   grid.innerHTML = '';
   for (const g of games) {
-    const url = `games/${g.id}/index.html`;
+    const url = `games/${g.id}/`;
     const card = el('article', 'card');
     const cover = el('div', 'cover', g.emoji || '🎮');
     cover.style.background = `linear-gradient(135deg, ${g.color || '#3b5bdb'}, #1a1d23)`;
@@ -116,7 +116,7 @@ fetch('games/games.json', { cache: 'no-cache' })
   .then(games => {
     render(games);
     const g = games.find(x => '#' + x.id === location.hash);
-    if (g) openGame(g, `games/${g.id}/index.html`);
+    if (g) openGame(g, `games/${g.id}/`);
   })
   .catch(() => { grid.innerHTML = '<p>Không tải được danh sách game (games/games.json). Hãy chạy qua web server, không mở file trực tiếp.</p>'; });
 </script>

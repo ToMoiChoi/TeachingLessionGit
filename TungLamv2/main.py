@@ -163,6 +163,56 @@ def draw_notice():
     if notice_timer > 0:
         draw_text(notice_text, font_mid, (255, 230, 120), center=(WIDTH // 2, 90))
 
+# CHẤT LƯỢNG ĐỒ HOẠ (cho máy yếu)
+# TỰ ĐỘNG: bắt đầu ở CAO, nếu FPS thấp kéo dài thì tự hạ dần. F2 để đổi tay.
+QUALITY_LEVELS = (  # (tên, số tia vẽ tường, nền đơn giản)
+    ("THẤP", 80, True),
+    ("VỪA", 120, False),
+    ("CAO", 160 if sys.platform == "emscripten" else 240, False),
+)
+QUALITY_MODES = ("TỰ ĐỘNG", "THẤP", "VỪA", "CAO")
+QUALITY_TARGET_FPS = min(FPS, 60)
+quality_mode = "TỰ ĐỘNG"
+quality_level = len(QUALITY_LEVELS) - 1
+_q_time, _q_frames, _q_bad = 0.0, 0, 0
+
+def apply_quality(level):
+    global quality_level
+    quality_level = level
+    _, rays, simple = QUALITY_LEVELS[level]
+    renderer.set_rays(rays)
+    renderer.simple_background = simple
+
+def cycle_quality_mode():
+    global quality_mode, _q_time, _q_frames, _q_bad
+    quality_mode = QUALITY_MODES[(QUALITY_MODES.index(quality_mode) + 1) % len(QUALITY_MODES)]
+    if quality_mode == "TỰ ĐỘNG":
+        apply_quality(len(QUALITY_LEVELS) - 1)
+    else:
+        apply_quality([q[0] for q in QUALITY_LEVELS].index(quality_mode))
+    _q_time, _q_frames, _q_bad = 0.0, 0, 0
+    notice(f"Đồ hoạ: {quality_mode} (F2 để đổi)", 2.0)
+
+def update_auto_quality(dt, playing):
+    """Đo FPS mỗi 2 giây; 2 lần liền dưới 75% mục tiêu thì hạ 1 mức."""
+    global _q_time, _q_frames, _q_bad
+    if quality_mode != "TỰ ĐỘNG" or not playing or quality_level == 0:
+        _q_time, _q_frames = 0.0, 0
+        return
+    if dt > 0.25:  # khựng 1 lần (đổi màn, tải ảnh...) thì bỏ qua
+        return
+    _q_time += dt
+    _q_frames += 1
+    if _q_time < 2.0:
+        return
+    fps = _q_frames / _q_time
+    _q_time, _q_frames = 0.0, 0
+    _q_bad = _q_bad + 1 if fps < QUALITY_TARGET_FPS * 0.75 else 0
+    if _q_bad >= 2:
+        _q_bad = 0
+        apply_quality(quality_level - 1)
+        notice(f"Máy hơi yếu → tự giảm đồ hoạ xuống {QUALITY_LEVELS[quality_level][0]} (F2 để đổi)", 3.0)
+
 # TIỀN & ĐẠN
 
 def add_money(amount):
@@ -1124,6 +1174,8 @@ def handle_keydown(key):
             go_to_menu()
     elif key == pygame.K_F12:
         save_screenshot("manual")
+    elif key == pygame.K_F2:
+        cycle_quality_mode()
     elif game_state == "MENU":
         if key == pygame.K_RETURN:
             menu_action("resume" if match_in_progress() else "start")
@@ -1190,6 +1242,7 @@ async def main():
     while running:
         dt = clock.tick(FPS) / 1000.0
         in_play = game_state in ("BUY", "ROUND", "ROUND_END")
+        update_auto_quality(dt, in_play and not shop_open)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
