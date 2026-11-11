@@ -106,7 +106,7 @@ football_manager_web/
 ```
 Chạy trên máy: `cd football_manager_web` → `pip install -r requirements.txt` → `python launcher.py`.
 
-Trên web: `vercel.json` chuyển `/football/...` vào `api/football.py` (Vercel Python function). Server chỉ ghi được vào `/tmp` nên **dữ liệu là tạm**: CLB có thể mất khi server khởi động lại. Muốn lưu lâu dài thì đặt biến môi trường `FM_DB_URI` trên Vercel trỏ tới một database Postgres (vd Neon).
+Trên web: `vercel.json` chuyển `/football/...` vào `api/football/index.py` (Vercel Python function). Server chỉ ghi được vào `/tmp` nên **dữ liệu là tạm**: CLB có thể mất khi server khởi động lại. Muốn lưu lâu dài thì đặt biến môi trường `FM_DB_URI` trên Vercel trỏ tới một database Postgres (vd Neon).
 
 ---
 
