@@ -1,4 +1,5 @@
 import pygame
+from font_vn import get_font
 from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, GREEN, RED, WHITE
 
 ORANGE = (255, 140, 0)
@@ -17,8 +18,8 @@ class Platform(pygame.sprite.Sprite):
 class LayoutRenderer:
     def __init__(self, screen):
         self.screen = screen
-        self.font = pygame.font.SysFont("Arial", 18, bold=True)
-        self.title_font = pygame.font.SysFont("Arial", 36, bold=True)
+        self.font = get_font(18, bold=True)
+        self.title_font = get_font(36, bold=True)
 
     def render(self, gameplay):
         if gameplay.current_level == 8 and gameplay.state in ["GAME", "LEVEL_CLEAR"]:

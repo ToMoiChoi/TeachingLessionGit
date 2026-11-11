@@ -1,10 +1,11 @@
 import pygame
+from font_vn import get_font
 from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, WHITE, GREEN, RED
 
 class CosmeticManager:
     def __init__(self):
-        self.font = pygame.font.SysFont("Arial", 16, bold=True)
-        self.title_font = pygame.font.SysFont("Arial", 18, bold=True)
+        self.font = get_font(16, bold=True)
+        self.title_font = get_font(18, bold=True)
         self.current_subtab = "HEAD"  # "HEAD" (Đội) hoặc "BODY" (Mặc)
 
         # Danh sách Vật phẩm Đội (Mũ, Visor, Vương miện, Hào quang)
@@ -89,14 +90,14 @@ class CosmeticManager:
         bd_h = CYBER_BLUE if self.current_subtab == "HEAD" else (70, 70, 90)
         pygame.draw.rect(screen, bg_h, btn_head, border_radius=6)
         pygame.draw.rect(screen, bd_h, btn_head, 2, border_radius=6)
-        txt_h = self.font.render("🧢 VẬT PHẨM ĐỘI", True, WHITE)
+        txt_h = self.font.render("VẬT PHẨM ĐỘI", True, WHITE)
         screen.blit(txt_h, (btn_head.centerx - txt_h.get_width() // 2, btn_head.centery - txt_h.get_height() // 2))
 
         bg_b = (50, 50, 80) if self.current_subtab == "BODY" else (25, 25, 40)
         bd_b = CYBER_PINK if self.current_subtab == "BODY" else (70, 70, 90)
         pygame.draw.rect(screen, bg_b, btn_body, border_radius=6)
         pygame.draw.rect(screen, bd_b, btn_body, 2, border_radius=6)
-        txt_b = self.font.render("👕 VẬT PHẨM MẶC", True, WHITE)
+        txt_b = self.font.render("VẬT PHẨM MẶC", True, WHITE)
         screen.blit(txt_b, (btn_body.centerx - txt_b.get_width() // 2, btn_body.centery - txt_b.get_height() // 2))
 
         # --- DANH SÁCH VẬT PHẨM ---

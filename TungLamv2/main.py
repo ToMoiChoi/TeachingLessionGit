@@ -4,6 +4,7 @@ import random
 import sys
 import asyncio
 import pygame
+from font_vn import get_font
 import sound
 
 from settings import WIDTH, HEIGHT, FPS, ROUND_TIME, BUY_TIME
@@ -143,7 +144,7 @@ dim_surface.fill((0, 0, 0, 160))
 # FONT & THÔNG BÁO
 
 def make_font(size, bold=False):
-    return pygame.font.SysFont("segoeui,arial,dejavusans,freesans", size, bold=bold)
+    return get_font(size, bold=bold)
 
 font_title, font_big, font_mid, font_small = make_font(64, True), make_font(30, True), make_font(22, True), make_font(17)
 notice_text, notice_timer = "", 0.0

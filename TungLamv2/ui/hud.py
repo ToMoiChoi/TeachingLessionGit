@@ -1,4 +1,5 @@
 import pygame
+from font_vn import get_font
 
 from settings import (
     WIDTH,
@@ -13,12 +14,11 @@ from settings import (
 class HUD:
 
     def __init__(self):
-        # Dùng Segoe UI / Tahoma có đầy đủ bộ glyph Tiếng Việt Unicode chuẩn trên Windows
-        font_family = "segoeui,tahoma,arial"
-        self.font_small = pygame.font.SysFont(font_family, 16, bold=True)
-        self.font = pygame.font.SysFont(font_family, 20)
-        self.mid_font = pygame.font.SysFont(font_family, 26, bold=True)
-        self.big_font = pygame.font.SysFont(font_family, 34, bold=True)
+        # Font tiếng Việt đóng gói kèm game (fonts/), chạy được cả trên máy và trên web
+        self.font_small = get_font(16, bold=True)
+        self.font = get_font(20)
+        self.mid_font = get_font(26, bold=True)
+        self.big_font = get_font(34, bold=True)
 
     def draw_text(
         self,

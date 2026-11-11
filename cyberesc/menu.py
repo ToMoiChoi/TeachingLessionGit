@@ -1,11 +1,12 @@
 import pygame
+from font_vn import get_font
 from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, WHITE, RED, GREEN
 
 class Menu:
     def __init__(self, screen):
         self.screen = screen
-        self.title_font = pygame.font.SysFont("Arial", 32, bold=True)
-        self.font = pygame.font.SysFont("Arial", 18, bold=True)
+        self.title_font = get_font(32, bold=True)
+        self.font = get_font(18, bold=True)
 
     def handle_click(self, pos, current_state, engine):
         x, y = pos

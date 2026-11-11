@@ -1,4 +1,5 @@
 import pygame
+from font_vn import get_font
 import os
 
 pygame.init()
@@ -135,11 +136,11 @@ LEVELS = [
 # FONTS
 # ============================================================
 
-FONT_TITLE = pygame.font.SysFont("arial", 42, bold=True)
-FONT_BIG = pygame.font.SysFont("arial", 30, bold=True)
-FONT_MED = pygame.font.SysFont("arial", 21, bold=True)
-FONT = pygame.font.SysFont("arial", 17)
-FONT_SMALL = pygame.font.SysFont("arial", 13)
+FONT_TITLE = get_font(42, bold=True)
+FONT_BIG = get_font(30, bold=True)
+FONT_MED = get_font(21, bold=True)
+FONT = get_font(17)
+FONT_SMALL = get_font(13)
 
 # ============================================================
 # HELPERS

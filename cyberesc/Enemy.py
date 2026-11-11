@@ -1,4 +1,5 @@
 import pygame
+from font_vn import get_font
 import math
 import random
 
@@ -224,7 +225,7 @@ class Boss(pygame.sprite.Sprite):
             pygame.draw.rect(screen, GREEN, (bar_x, bar_y, int(bar_w * hp_ratio), bar_h), border_radius=3)
 
             # Văn bản trạng thái Phase
-            font = pygame.font.SysFont("Arial", 13, bold=True)
+            font = get_font(13, bold=True)
             status_str = "BOSS PHASE 2: RAGE MODE (2x DMG)" if self.phase == 2 else "BOSS PHASE 1"
             txt_color = ORANGE if self.phase == 2 else WHITE
             

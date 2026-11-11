@@ -57,9 +57,25 @@ def main() -> int:
         print(f"Da them '{entry['title']}' vao games/games.json")
 
     target = GAMES_DIR / entry["id"]
-    if target.exists():
-        shutil.rmtree(target)
-    shutil.copytree(build_web, target, ignore=shutil.ignore_patterns("web-cache"))
+    # Xoa noi dung ben trong thay vi xoa ca thu muc: OneDrive hay khoa thu muc
+    # dang dong bo nen os.rmdir bi "Access is denied".
+    target.mkdir(parents=True, exist_ok=True)
+    for old in target.iterdir():
+        shutil.rmtree(old) if old.is_dir() else old.unlink()
+    shutil.copytree(build_web, target, ignore=shutil.ignore_patterns("web-cache"), dirs_exist_ok=True)
+    # pygbag dat ten file theo ten thu muc ("Bảo Nam" -> "bảo.nam.apk"). Ten co dau /
+    # dau cham de loi tren web, nen doi thanh <id>.apk va sua cac cho goi trong index.html.
+    apks = [p for p in target.glob("*.apk")]
+    if len(apks) == 1 and apks[0].stem != entry["id"]:
+        old_name, new_name = apks[0].stem, entry["id"]
+        for ext in (".apk", ".tar.gz"):
+            src = target / (old_name + ext)
+            if src.exists():
+                src.rename(target / (new_name + ext))
+        index = target / "index.html"
+        index.write_text(index.read_text(encoding="utf-8").replace(old_name, new_name), encoding="utf-8")
+        print(f"Doi ten ban build: {old_name} -> {new_name}")
+
     print(f"Da chep ban build vao games/{entry['id']}/:")
     for f in sorted(target.iterdir()):
         print("   ", f.name)

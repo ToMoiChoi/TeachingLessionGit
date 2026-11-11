@@ -1,4 +1,5 @@
 import pygame
+from font_vn import get_font
 import math
 from game.map import line_blocked
 from graphics.weapon_skins import get_viewmodel_parts, get_dropped_skin
@@ -21,12 +22,11 @@ class GameView:
         self._vm_t = 0.0
         self.tracers = []
         self.tracer_duration = 90
-        font_family = "segoeui,tahoma,arial"
-        self.font_big = pygame.font.SysFont(font_family, 44, bold=True)
-        self.font_mid = pygame.font.SysFont(font_family, 24, bold=True)
-        self.font_small = pygame.font.SysFont(font_family, 20)
-        self.font_victory = pygame.font.SysFont(font_family, 84, bold=True)
-        self.font_hint = pygame.font.SysFont(font_family, 22)
+        self.font_big = get_font(44, bold=True)
+        self.font_mid = get_font(24, bold=True)
+        self.font_small = get_font(20)
+        self.font_victory = get_font(84, bold=True)
+        self.font_hint = get_font(22)
 
     def spawn_tracer(self, end_pos):
         self.tracers.append({

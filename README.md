@@ -139,6 +139,13 @@ Yêu cầu để game chạy được trên web (pygbag):
 - `main.py` có `async def main()` và trong vòng lặp có `await asyncio.sleep(0)`.
 - Âm thanh dùng `.wav` hoặc `.ogg`.
 - Đường dẫn file dùng tương đối so với thư mục game.
+- **Chữ tiếng Việt:** không dùng `pygame.font.SysFont("arial", ...)`. Trên trình duyệt không có font hệ thống, pygame rơi về font mặc định thiếu chữ có dấu (ạ, ế, ồ, ữ… hiện thành ô vuông). Mỗi game đã có sẵn `font_vn.py` + thư mục `fonts/`:
+  ```python
+  from font_vn import get_font
+  font = get_font(20)              # chữ thường
+  title = get_font(36, bold=True)  # chữ đậm
+  ```
+  Font đi kèm (giấy phép OFL, miễn phí): **Roboto Condensed** cho Bảo Nam và CyberEsc (thay Arial Narrow mà `SysFont("arial")` đang lấy trên Windows), **Arimo** cho TungLamv2 (thay Segoe UI). Đã thu gọn chỉ còn chữ Latin + tiếng Việt, ~60–80 KB/file. Emoji (🧢 👕…) không font nào trong game vẽ được, đừng đưa vào chữ hiển thị.
 
 ---
 
