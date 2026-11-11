@@ -1,0 +1,5 @@
+# Thư viện cho Vercel Python function api/football.py (app Football Manager)
+Flask>=3.0
+Flask-SQLAlchemy>=3.1
+SQLAlchemy>=2.0
+Werkzeug>=3.0

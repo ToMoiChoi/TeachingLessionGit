@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Trực tiếp{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="center mb-2"><span class="minute" id="minute">0'</span> <span class="muted" id="phaseLabel">Hiệp 1</span></div>
+    <div class="scoreboard">
+        <div class="team">{{ match.home_team }}<div class="muted" style="font-weight:400;font-size:13px">{{ match.home_formation }}</div></div>
+        <div class="score"><span id="hg">{{ match.home_goals }}</span> - <span id="ag">{{ match.away_goals }}</span></div>
+        <div class="team">{{ match.away_team }}<div class="muted" style="font-weight:400;font-size:13px">{{ match.away_formation }}</div></div>
+    </div>
+</div>
+
+<div class="card actions mt-2" style="align-items:center">
+    <button class="btn primary" id="playBtn">⏸ Tạm dừng</button>
+    <label class="muted" for="speed">Tốc độ</label>
+    <select id="speed" style="width:auto">
+        <option value="900">Chậm</option>
+        <option value="450" selected>Vừa</option>
+        <option value="150">Nhanh</option>
+    </select>
+    <span class="muted" style="margin-left:auto">Chiến thuật:</span>
+    <button class="btn small tactic" data-t="Tan cong">⚔️ Tấn công</button>
+    <button class="btn small tactic" data-t="Can bang">⚖️ Cân bằng</button>
+    <button class="btn small tactic" data-t="Phong thu">🛡️ Phòng thủ</button>
+    <button class="btn small gold" id="subBtn">🔄 Thay người (<span id="subsLeft">{{ 3 - session.get('subs_used', 0) }}</span>)</button>
+</div>
+
+<div id="halftimeBox" class="alert info mt-2" style="display:none">
+    ⏱️ <b>Nghỉ giữa hiệp.</b> Bạn có thể thay người hoặc đổi chiến thuật trước khi vào hiệp 2.
+    <form method="POST" action="{{ url_for('start_second_half') }}" style="display:inline">
+        <button class="btn primary small" type="submit">▶️ Bắt đầu hiệp 2</button>
+    </form>
+</div>
+<div id="finishBox" class="alert success mt-2" style="display:none">
+    🏁 <b>Trận đấu kết thúc!</b> <a class="btn primary small" href="{{ url_for('result') }}">Xem kết quả →</a>
+</div>
+<div id="lowBox" class="alert error mt-2" style="display:none"></div>
+
+<div class="grid-2 mt-2">
+    <div class="card">
+        <h3>📺 Diễn biến trận đấu</h3>
+        <div class="events" id="events"></div>
+    </div>
+    <div class="card">
+        <h3>💪 Thể lực đội nhà</h3>
+        <div class="table-wrap">
+            <table><tbody id="stamina"></tbody></table>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="subModal" role="dialog" aria-label="Thay người">
+    <div class="card">
+        <h3>🔄 Thay người</h3>
+        <div id="subError" class="error" style="display:none"></div>
+        <div class="form-group">
+            <label for="outSel">Cầu thủ ra sân</label>
+            <select id="outSel"></select>
+        </div>
+        <div class="form-group">
+            <label for="inSel">Cầu thủ vào sân</label>
+            <select id="inSel"></select>
+        </div>
+        <div class="actions">
+            <button class="btn primary" id="subConfirm">Xác nhận</button>
+            <button class="btn secondary" id="subCancel">Huỷ</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const URLS = {
+    tick: "{{ url_for('tick') }}",
+    tactic: "{{ url_for('change_tactic') }}",
+    players: "{{ url_for('get_players') }}",
+    sub: "{{ url_for('substitute_api') }}",
+    result: "{{ url_for('result') }}"
+};
+const initial = {{ match_json|safe }};
+const $ = id => document.getElementById(id);
+let running = !(initial.finished || initial.phase === 'halftime');
+let timer = null, busy = false, currentTactic = initial.tactic || 'Can bang';
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function renderEvents(events) {
+    const box = $('events');
+    box.innerHTML = '';
+    (events || []).slice().reverse().forEach(e => {
+        const d = e.description || '';
+        const cls = d.includes('⚽') ? 'goal' : (d.includes('🧤') ? 'chance' : 'info');
+        const div = document.createElement('div');
+        div.className = 'event ' + cls;
+        div.textContent = d;
+        box.appendChild(div);
+    });
+    if (!box.children.length) box.innerHTML = '<p class="muted">Trận đấu sắp bắt đầu...</p>';
+}
+
+function renderStamina(players) {
+    const tb = $('stamina');
+    tb.innerHTML = '';
+    (players || []).forEach(p => {
+        const s = Math.round(p.stamina);
+        const cls = s < 50 ? 'low' : (s < 65 ? 'warn' : '');
+        tb.insertAdjacentHTML('beforeend',
+            `<tr><td>${esc(p.name)}</td><td class="num">${s}%</td><td style="width:45%"><div class="bar ${cls}"><i style="width:${s}%"></i></div></td></tr>`);
+    });
+}
+
+function setPhase(d) {
+    const min = d.current_minute || 0;
+    $('minute').textContent = min + "'";
+    const halftime = d.halftime || d.phase === 'halftime';
+    $('phaseLabel').textContent = d.finished ? 'Hết giờ' : (halftime ? 'Nghỉ giữa hiệp' : ((d.half || 1) === 1 ? 'Hiệp 1' : 'Hiệp 2'));
+    $('halftimeBox').style.display = halftime && !d.finished ? '' : 'none';
+    $('finishBox').style.display = d.finished ? '' : 'none';
+    if (halftime || d.finished) stop();
+    $('playBtn').disabled = halftime || d.finished;
+}
+
+function setTacticButtons() {
+    document.querySelectorAll('.tactic').forEach(b => b.classList.toggle('primary', b.dataset.t === currentTactic));
+}
+
+async function step() {
+    if (busy) return;
+    busy = true;
+    try {
+        const r = await fetch(URLS.tick, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json();
+        if (d.error) { stop(); return; }
+        if (d.finished && d.events === undefined) {   // trận đã xong từ trước
+            setPhase({ finished: true, current_minute: 90 });
+            return;
+        }
+        $('hg').textContent = d.home_goals;
+        $('ag').textContent = d.away_goals;
+        renderEvents(d.events);
+        if (d.home_players) renderStamina(d.home_players);
+        const low = d.low_stamina_home || [];
+        $('lowBox').style.display = low.length ? '' : 'none';
+        $('lowBox').textContent = low.length ? '⚠️ Cầu thủ đuối sức (dưới 65%): ' + low.join(', ') + ' — cân nhắc thay người!' : '';
+        setPhase(d);
+    } catch (e) {
+        stop();
+    } finally {
+        busy = false;
+    }
+}
+
+function start() {
+    if (timer) clearInterval(timer);
+    running = true;
+    $('playBtn').textContent = '⏸ Tạm dừng';
+    timer = setInterval(step, parseInt($('speed').value, 10));
+}
+function stop() {
+    running = false;
+    if (timer) clearInterval(timer);
+    timer = null;
+    $('playBtn').textContent = '▶️ Tiếp tục';
+}
+
+$('playBtn').onclick = () => running ? stop() : start();
+$('speed').onchange = () => { if (running) start(); };
+
+document.querySelectorAll('.tactic').forEach(b => b.onclick = async () => {
+    const r = await fetch(URLS.tactic, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                         body: JSON.stringify({ tactic: b.dataset.t }) });
+    const d = await r.json();
+    if (d.success) { currentTactic = d.tactic; setTacticButtons(); }
+});
+
+$('subBtn').onclick = async () => {
+    const wasRunning = running;
+    stop();
+    $('subModal').dataset.resume = wasRunning ? '1' : '';
+    $('subError').style.display = 'none';
+    const d = await (await fetch(URLS.players)).json();
+    const opt = p => `<option value="${p.id}">${esc(p.position)} · ${esc(p.name)} (${Math.round(p.stamina)}%)</option>`;
+    $('outSel').innerHTML = (d.starting || []).map(opt).join('');
+    $('inSel').innerHTML = (d.subs || []).map(opt).join('');
+    $('subModal').classList.add('open');
+};
+function closeSub() {
+    $('subModal').classList.remove('open');
+    if ($('subModal').dataset.resume) start();
+}
+$('subCancel').onclick = closeSub;
+$('subConfirm').onclick = async () => {
+    const r = await fetch(URLS.sub, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_out: parseInt($('outSel').value, 10), player_in: parseInt($('inSel').value, 10) }) });
+    const d = await r.json();
+    if (d.success) {
+        $('subsLeft').textContent = 3 - d.subs_used;
+        closeSub();
+        step();
+    } else {
+        $('subError').textContent = d.error || 'Không thay được người.';
+        $('subError').style.display = '';
+    }
+};
+
+renderEvents(initial.events);
+renderStamina(initial.home_players);
+setTacticButtons();
+setPhase(initial);
+if (running) start();
+</script>
+{% endblock %}

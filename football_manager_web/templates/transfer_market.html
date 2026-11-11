@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Chuyển nhượng{% endblock %}
+{% block content %}
+<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
+<h1 class="mt-1">💱 Thị Trường Chuyển Nhượng</h1>
+<p class="muted">Ngân sách: <b class="gold">${{ "{:,}".format(club.money) }}</b> · Đội hình: {{ squad_players|length }} cầu thủ (tối thiểu 11).
+    Danh sách cầu thủ mới sẽ thay đổi sau mỗi vòng đấu.</p>
+
+{% if message %}<div class="alert success">{{ message }}</div>{% endif %}
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+{% if incoming_offers %}
+<h2 class="mt-2">📨 Lời đề nghị từ CLB khác</h2>
+{% for o in incoming_offers %}
+<div class="card">
+    <p style="margin:0 0 10px"><b>{{ o.club_name }}</b> muốn mua <b>{{ o.player_name }}</b> với giá
+        <b class="gold">${{ "{:,}".format(o.offer_price) }}</b>.</p>
+    <div class="actions">
+        <form method="POST">
+            <input type="hidden" name="action" value="accept_offer">
+            <input type="hidden" name="offer_id" value="{{ o.id }}">
+            <button class="btn primary small" type="submit">✅ Chấp nhận</button>
+        </form>
+        <form method="POST">
+            <input type="hidden" name="action" value="reject_offer">
+            <input type="hidden" name="offer_id" value="{{ o.id }}">
+            <button class="btn small" type="submit">✖ Từ chối</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2 class="mt-3">🛒 Cầu thủ đang được rao bán</h2>
+{% if candidates %}
+<div class="grid">
+    {% for c in candidates %}
+    <div class="card">
+        <div class="actions" style="justify-content:space-between;align-items:center">
+            <span class="badge {{ 'gk' if c.position == 'GK' else 'pos' }}">{{ c.position }}</span>
+            <span class="ovr {{ 'gold' if c.overall >= 80 }}">{{ c.overall }}</span>
+        </div>
+        <h3 class="mt-1">{{ c.name }}</h3>
+        <p class="muted" style="margin:0 0 8px;font-size:13px">ATK {{ c.attack }} · DEF {{ c.defense }} · SPD {{ c.speed }}</p>
+        <p style="margin:0 0 12px">Giá: <b class="gold">${{ "{:,}".format(c.price) }}</b></p>
+        <form method="POST">
+            <input type="hidden" name="action" value="buy_now">
+            <input type="hidden" name="candidate_id" value="{{ c.id }}">
+            <button class="btn primary block" type="submit">💰 Mua ngay</button>
+        </form>
+        <form method="POST" class="mt-1">
+            <input type="hidden" name="action" value="negotiate_bid">
+            <input type="hidden" name="candidate_id" value="{{ c.id }}">
+            <div class="actions">
+                <select name="bid_discount" aria-label="Mức trả giá" style="flex:1">
+                    <option value="0.95">Giảm 5% · ${{ "{:,}".format((c.price * 0.95)|int) }} (98%)</option>
+                    <option value="0.9">Giảm 10% · ${{ "{:,}".format((c.price * 0.9)|int) }} (85%)</option>
+                    <option value="0.85">Giảm 15% · ${{ "{:,}".format((c.price * 0.85)|int) }} (60%)</option>
+                    <option value="0.8">Giảm 20% · ${{ "{:,}".format((c.price * 0.8)|int) }} (60%)</option>
+                </select>
+                <button class="btn small" type="submit">🤝 Trả giá</button>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+<p class="muted" style="font-size:13px">Số trong ngoặc là tỉ lệ CLB đối tác đồng ý bán.</p>
+{% else %}
+<div class="card muted">Thị trường đã hết cầu thủ trong vòng này. Hãy quay lại sau vòng đấu tiếp theo.</div>
+{% endif %}
+
+<h2 class="mt-3">📤 Bán cầu thủ</h2>
+<div class="card table-wrap">
+    <table>
+        <thead><tr><th>Tên</th><th>VT</th><th class="num">OVR</th><th class="num">Giá bán</th><th></th></tr></thead>
+        <tbody>
+        {% for p in squad_players|sort(attribute='overall', reverse=True) %}
+        <tr>
+            <td><b>{{ p.name }}</b></td>
+            <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
+            <td class="num"><span class="ovr">{{ p.overall }}</span></td>
+            <td class="num gold">${{ "{:,}".format((p.overall * 65000)|int) }}</td>
+            <td class="right">
+                <form method="POST" onsubmit="return confirm('Bán {{ p.name }}?')">
+                    <input type="hidden" name="action" value="sell_player">
+                    <input type="hidden" name="player_id" value="{{ p.id }}">
+                    <button class="btn small danger" type="submit" {{ 'disabled' if squad_players|length <= 11 }}>Bán</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

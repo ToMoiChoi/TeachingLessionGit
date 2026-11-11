@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Bảng xếp hạng{% endblock %}
+{% block content %}
+<h1>🏆 Bảng xếp hạng</h1>
+<p class="muted">{{ {'Hang 1': 'Hạng 1 (V-League 1)', 'Hang 2': 'Hạng 2'}.get(club.league, club.league) }} · Mùa {{ club.season }} ·
+    {% if club.league == 'Hang 2' %}Top 2 được thăng hạng{% else %}Đội đứng đầu sẽ vô địch{% endif %}</p>
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th class="num">#</th><th>Đội</th><th class="num">Trận</th><th class="num">T</th><th class="num">H</th>
+                <th class="num">B</th><th class="num">BT</th><th class="num">BB</th><th class="num">HS</th><th class="num">Điểm</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for t in teams %}
+            {% set promo = (club.league == 'Hang 2' and loop.index <= 2) or (club.league != 'Hang 2' and loop.index == 1) %}
+            <tr class="{{ 'me' if t.is_player }} {{ 'promo' if promo }} {{ 'releg' if loop.revindex <= 2 }}">
+                <td class="num">{{ loop.index }}</td>
+                <td>{{ '⭐ ' if t.is_player }}{{ t.name }}</td>
+                <td class="num">{{ t.played }}</td>
+                <td class="num">{{ t.wins }}</td>
+                <td class="num">{{ t.draws }}</td>
+                <td class="num">{{ t.losses }}</td>
+                <td class="num">{{ t.goals_for }}</td>
+                <td class="num">{{ t.goals_against }}</td>
+                <td class="num">{{ '%+d'|format(t.gd) }}</td>
+                <td class="num"><b>{{ t.points }}</b></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="muted mt-2" style="font-size:13px">T: thắng · H: hòa · B: bại · BT/BB: bàn thắng/bàn bại · HS: hiệu số.
+        Viền xanh: suất thăng hạng/vô địch · viền đỏ: nhóm cuối bảng.</p>
+</div>
+<div class="actions mt-2">
+    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Đá vòng tiếp theo</a>
+    <a class="btn" href="{{ url_for('schedule') }}">📅 Lịch thi đấu</a>
+</div>
+{% endblock %}

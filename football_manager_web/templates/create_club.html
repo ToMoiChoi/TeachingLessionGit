@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tạo CLB mới</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>🏟️ Tạo Câu Lạc Bộ Mới</h2>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <div class="form-group">
+                <label>Tên CLB:</label>
+                <input type="text" name="name" required placeholder="VD: Hà Nội FC, Red Dragons...">
+            </div>
+            <div class="form-group">
+                <label>Giải đấu bắt đầu:</label>
+                <select name="league">
+                    <option value="Hang 2">Hạng 2 (League 2)</option>
+                    <option value="Hang 1">Hạng 1 (League 1)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sơ đồ chiến thuật ưa thích:</label>
+                <select name="formation">
+                    <option value="4-3-3">4-3-3 (Tấn công cánh)</option>
+                    <option value="4-2-3-1">4-2-3-1 (Kiểm soát khu trung tuyến)</option>
+                    <option value="5-3-2">5-3-2 (Phòng ngự phản công)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn primary">Tạo CLB & Khởi tạo Đội hình</button>
+            <a href="{{ url_for('index') }}" class="btn secondary mt-2">← Quay lại</a>
+        </form>
+    </div>
+</body>
+</html>

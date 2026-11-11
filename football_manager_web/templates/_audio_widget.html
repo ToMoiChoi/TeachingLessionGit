@@ -1,0 +1,333 @@
+
+<!-- TỰ ĐỘNG CHÈN BỘ PHÁT NHẠC FIFA & TIẾNG CLICK (NHỎ GỌN & KÉO THẢ ĐƯỢC) -->
+<div id="fifa-player-widget">
+    <div class="f-drag-handle" id="fDragHandle" title="Giữ chuột để kéo di chuyển">⋮⋮</div>
+    <div class="f-info">
+        <span class="f-disc" id="fDisc">💿</span>
+        <div class="f-text">
+            <span class="f-title" id="fTitle">Love Me Again</span>
+            <span class="f-sub">FIFA Soundtrack</span>
+        </div>
+    </div>
+    <div class="f-controls">
+        <select id="fSongSelect" title="Chọn bài hát">
+            <option value="0">John Newman - Love Me Again</option>
+            <option value="1">Glass Animals - Heat Waves</option>
+            <option value="2">Joy Crookes - Feet Don't Fail Me Now</option>
+        </select>
+        <button id="fPrevBtn" title="Bài trước">⏮️</button>
+        <button id="fPlayBtn" title="Phát/Dừng">⏸️</button>
+        <button id="fNextBtn" title="Bài tiếp">⏭️</button>
+        <button id="fShuffleBtn" title="Phát ngẫu nhiên">🔀</button>
+        <div class="f-vol">
+            <span>🔈</span>
+            <input type="range" id="fVolume" min="0" max="1" step="0.05" value="0.35">
+            <span>🔊</span>
+        </div>
+    </div>
+</div>
+
+<style>
+#fifa-player-widget {
+    position: fixed;
+    bottom: 14px;
+    right: 14px;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 12px rgba(99, 102, 241, 0.25);
+    border-radius: 30px;
+    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 99999;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 0.76rem;
+    cursor: default;
+    user-select: none;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+#fifa-player-widget.dragging {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.8), 0 0 20px rgba(99, 102, 241, 0.5);
+    border-color: #6366f1;
+    opacity: 0.95;
+    transition: none;
+}
+.f-drag-handle {
+    cursor: grab;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+.f-drag-handle:active { cursor: grabbing; color: #fff; }
+.f-info { display: flex; align-items: center; gap: 6px; }
+.f-disc { font-size: 1.1rem; animation: fSpin 6s linear infinite paused; }
+.f-disc.playing { animation-play-state: running; }
+@keyframes fSpin { 100% { transform: rotate(360deg); } }
+.f-text { display: flex; flex-direction: column; max-width: 95px; }
+.f-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e0e7ff; font-size: 0.75rem; }
+.f-sub { font-size: 0.62rem; color: #a5b4fc; }
+.f-controls { display: flex; align-items: center; gap: 5px; }
+.f-controls button {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.68rem;
+    transition: all 0.15s;
+    padding: 0;
+}
+.f-controls button:hover { background: #4f46e5; transform: scale(1.08); }
+.f-controls button.active { background: #10b981; border-color: #10b981; }
+#fSongSelect {
+    background: #1e293b;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #fff;
+    padding: 3px 6px;
+    border-radius: 12px;
+    outline: none;
+    font-size: 0.7rem;
+    cursor: pointer;
+    max-width: 130px;
+}
+.f-vol { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; }
+.f-vol input[type="range"] { width: 50px; height: 3px; cursor: pointer; accent-color: #6366f1; }
+@media (max-width: 768px) {
+    #fifa-player-widget { border-radius: 14px; padding: 4px 8px; }
+    #fSongSelect, .f-vol { display: none; }
+}
+</style>
+
+<script>
+(function() {
+    // 1. ĐỒNG NHẤT TIẾNG CLICK.WAV CHO TẤT CẢ CÁC NÚT
+    const clickAudio = new Audio('/sounds/sfx/Click.wav');
+    clickAudio.volume = 0.5;
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('a, button, select, input, .btn, [onclick], .tactic-btn')) {
+            clickAudio.currentTime = 0;
+            clickAudio.play().catch(()=>{});
+        }
+    });
+
+    // 2. NẾU LÀ TRANG TRẬN ĐẤU THÌ TẮT NHẠC FIFA VÀ ẨN WIDGET
+    if (window.location.pathname.includes('/live_match')) {
+        const w = document.getElementById('fifa-player-widget');
+        if (w) w.style.display = 'none';
+        return;
+    }
+
+    const widget = document.getElementById('fifa-player-widget');
+    const dragHandle = document.getElementById('fDragHandle');
+
+    // ==================== TÍNH NĂNG KÉO THẢ WIDGET (DRAGGABLE) ====================
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    // Khôi phục vị trí đã kéo trước đó
+    const savedPos = JSON.parse(localStorage.getItem('fifa_widget_pos') || 'null');
+    if (savedPos && widget) {
+        widget.style.left = `${Math.min(window.innerWidth - 80, Math.max(10, savedPos.left))}px`;
+        widget.style.top = `${Math.min(window.innerHeight - 50, Math.max(10, savedPos.top))}px`;
+        widget.style.right = 'auto';
+        widget.style.bottom = 'auto';
+    }
+
+    function onDragStart(e) {
+        if (e.target.closest('button, select, input')) return; // Không kéo khi bấm nút
+        isDragging = true;
+        widget.classList.add('dragging');
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        startX = clientX;
+        startY = clientY;
+
+        const rect = widget.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        widget.style.left = `${initialLeft}px`;
+        widget.style.top = `${initialTop}px`;
+        widget.style.right = 'auto';
+        widget.style.bottom = 'auto';
+
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('mouseup', onDragEnd);
+        document.addEventListener('touchmove', onDragMove, { passive: false });
+        document.addEventListener('touchend', onDragEnd);
+    }
+
+    function onDragMove(e) {
+        if (!isDragging) return;
+        if (e.cancelable) e.preventDefault();
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+
+        // Giới hạn trong màn hình
+        const maxLeft = window.innerWidth - widget.offsetWidth - 8;
+        const maxTop = window.innerHeight - widget.offsetHeight - 8;
+        newLeft = Math.max(8, Math.min(maxLeft, newLeft));
+        newTop = Math.max(8, Math.min(maxTop, newTop));
+
+        widget.style.left = `${newLeft}px`;
+        widget.style.top = `${newTop}px`;
+    }
+
+    function onDragEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        widget.classList.remove('dragging');
+        const rect = widget.getBoundingClientRect();
+        localStorage.setItem('fifa_widget_pos', JSON.stringify({ left: rect.left, top: rect.top }));
+
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+        document.removeEventListener('touchmove', onDragMove);
+        document.removeEventListener('touchend', onDragEnd);
+    }
+
+    if (dragHandle) dragHandle.addEventListener('mousedown', onDragStart);
+    if (widget) {
+        widget.addEventListener('mousedown', (e) => {
+            if (e.target === widget || e.target.classList.contains('f-info') || e.target.classList.contains('f-text')) {
+                onDragStart(e);
+            }
+        });
+        widget.addEventListener('touchstart', onDragStart, { passive: true });
+    }
+
+    // ==================== PHÁT NHẠC FIFA LIÊN TỤC ====================
+    const fifaTracks = [
+        { title: "Love Me Again", file: "/sounds/bgm/John Newman - Love Me Again.mp3" },
+        { title: "Heat Waves", file: "/sounds/bgm/Glass Animals - Heat Waves (Official Video).mp3" },
+        { title: "Feet Don't Fail Me Now", file: "/sounds/bgm/Joy Crookes - Feet Don t Fail Me Now (Official Video).mp3" }
+    ];
+
+    const audio = new Audio();
+    audio.preload = "auto";
+
+    let currentIdx = parseInt(localStorage.getItem('fifa_track_idx') || '0');
+    let isShuffle = localStorage.getItem('fifa_shuffle') === 'true';
+    let savedVol = parseFloat(localStorage.getItem('fifa_volume') || '0.35');
+    let shouldPlay = localStorage.getItem('fifa_is_playing') !== 'false';
+
+    const disc = document.getElementById('fDisc');
+    const titleEl = document.getElementById('fTitle');
+    const selectEl = document.getElementById('fSongSelect');
+    const playBtn = document.getElementById('fPlayBtn');
+    const prevBtn = document.getElementById('fPrevBtn');
+    const nextBtn = document.getElementById('fNextBtn');
+    const shuffleBtn = document.getElementById('fShuffleBtn');
+    const volInput = document.getElementById('fVolume');
+
+    audio.volume = savedVol;
+    volInput.value = savedVol;
+    if (isShuffle) shuffleBtn.classList.add('active');
+
+    function loadAndPlay(idx, startAtTime = 0, triggerPlay = true) {
+        currentIdx = (idx + fifaTracks.length) % fifaTracks.length;
+        const track = fifaTracks[currentIdx];
+        audio.src = track.file;
+        titleEl.textContent = track.title;
+        selectEl.value = currentIdx;
+        localStorage.setItem('fifa_track_idx', currentIdx);
+        audio.currentTime = startAtTime;
+
+        if (triggerPlay && shouldPlay) {
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+                localStorage.setItem('fifa_is_playing', 'true');
+            }).catch(() => {
+                playBtn.textContent = '▶️';
+                disc.classList.remove('playing');
+            });
+        } else {
+            playBtn.textContent = '▶️';
+            disc.classList.remove('playing');
+        }
+    }
+
+    function playNext() {
+        let nextIdx;
+        if (isShuffle) {
+            do {
+                nextIdx = Math.floor(Math.random() * fifaTracks.length);
+            } while (nextIdx === currentIdx && fifaTracks.length > 1);
+        } else {
+            nextIdx = currentIdx + 1;
+        }
+        loadAndPlay(nextIdx, 0, true);
+    }
+
+    audio.addEventListener('timeupdate', () => {
+        localStorage.setItem('fifa_track_time', audio.currentTime);
+    });
+
+    audio.addEventListener('ended', playNext);
+
+    playBtn.addEventListener('click', () => {
+        if (audio.paused) {
+            shouldPlay = true;
+            localStorage.setItem('fifa_is_playing', 'true');
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+            }).catch(()=>{});
+        } else {
+            shouldPlay = false;
+            localStorage.setItem('fifa_is_playing', 'false');
+            audio.pause();
+            playBtn.textContent = '▶️';
+            disc.classList.remove('playing');
+        }
+    });
+
+    nextBtn.addEventListener('click', playNext);
+    prevBtn.addEventListener('click', () => loadAndPlay(currentIdx - 1, 0, true));
+
+    shuffleBtn.addEventListener('click', () => {
+        isShuffle = !isShuffle;
+        shuffleBtn.classList.toggle('active', isShuffle);
+        localStorage.setItem('fifa_shuffle', isShuffle);
+    });
+
+    selectEl.addEventListener('change', (e) => loadAndPlay(parseInt(e.target.value), 0, true));
+
+    volInput.addEventListener('input', (e) => {
+        audio.volume = parseFloat(e.target.value);
+        localStorage.setItem('fifa_volume', audio.volume);
+    });
+
+    const savedTime = parseFloat(localStorage.getItem('fifa_track_time') || '0');
+    loadAndPlay(currentIdx, savedTime, shouldPlay);
+
+    document.addEventListener('click', () => {
+        if (audio.paused && shouldPlay) {
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+            }).catch(()=>{});
+        }
+    }, { once: true });
+})();
+</script>

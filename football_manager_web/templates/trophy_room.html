@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Phòng danh hiệu{% endblock %}
+{% block content %}
+<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
+<h1 class="mt-1">🏅 Phòng Truyền Thống {{ club.name }}</h1>
+<p class="muted">Những danh hiệu câu lạc bộ đã giành được qua các mùa giải.</p>
+
+{% if trophies_list %}
+<div class="grid">
+    {% for t in trophies_list %}
+    <div class="card center">
+        <div style="font-size:48px">{{ t.icon if t is mapping and t.icon else '🏆' }}</div>
+        {% if t is mapping %}
+        <h3 class="mt-1 gold">{{ t.name or t.title or 'Danh hiệu' }}</h3>
+        {% if t.season %}<p class="muted" style="margin:0">Mùa giải {{ t.season }}</p>{% endif %}
+        {% if t.league %}<p class="muted" style="margin:0">{{ t.league }}</p>{% endif %}
+        {% if t.description %}<p class="muted" style="margin:6px 0 0;font-size:13px">{{ t.description }}</p>{% endif %}
+        {% else %}
+        <h3 class="mt-1 gold">{{ t }}</h3>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card center">
+    <div style="font-size:48px">🏆</div>
+    <h3 class="mt-1">Tủ kính vẫn còn trống</h3>
+    <p class="muted">Hãy dẫn dắt đội bóng giành ngôi vô địch để đặt chiếc cúp đầu tiên vào đây!</p>
+    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Thi đấu ngay</a>
+</div>
+{% endif %}
+{% endblock %}

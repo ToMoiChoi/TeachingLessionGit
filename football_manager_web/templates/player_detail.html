@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }}{% endblock %}
+{% block head %}
+<style>
+  .detail { display: grid; gap: 16px; grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+  @media (max-width: 800px) { .detail { grid-template-columns: 1fr; } }
+  .fc-card { border-radius: 18px; padding: 18px 16px; text-align: center; color: #1b1400; position: relative;
+             background: linear-gradient(160deg, #e9edf0, #9aa5ab); box-shadow: var(--shadow); }
+  .fc-card.tier-gold { background: linear-gradient(160deg, #ffe58a, #c8962c); }
+  .fc-card.tier-ucl { background: linear-gradient(160deg, #3a1d6e, #0d0a2b); color: #fff; }
+  .fc-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .fc-card .big { font-size: 46px; font-weight: 900; line-height: 1; }
+  .fc-card .pos { font-weight: 800; font-size: 16px; }
+  .fc-card img { width: 140px; height: 140px; object-fit: cover; border-radius: 50%; margin: 6px auto; display: block; background: rgba(0,0,0,.15); }
+  .fc-card .fn { font-size: 12px; letter-spacing: .08em; opacity: .8; }
+  .fc-card .ln { font-size: 22px; font-weight: 900; letter-spacing: .04em; }
+  .fc-card .six { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; margin-top: 10px; font-weight: 800; }
+  .fc-card .six span { font-weight: 600; opacity: .75; margin-left: 4px; font-size: 12px; }
+  .attr-groups { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .attr { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; align-items: center; }
+  .attr .bar { grid-column: 1 / -1; height: 5px; }
+  .lvl { display: flex; gap: 4px; }
+  .lvl i { width: 18px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.12); }
+  .lvl i.on { background: var(--gold); }
+</style>
+{% endblock %}
+{% block content %}
+{% set labels = {
+  'pace': 'Tốc độ', 'shooting': 'Dứt điểm', 'passing': 'Chuyền bóng', 'dribbling': 'Rê bóng',
+  'defending': 'Phòng ngự', 'physical': 'Thể chất', 'goalkeeping': 'Thủ môn',
+  'acceleration': 'Tăng tốc', 'sprint_speed': 'Chạy nước rút', 'finishing': 'Dứt điểm', 'shot_power': 'Lực sút',
+  'long_shots': 'Sút xa', 'volleys': 'Vô lê', 'penalties': 'Penalty', 'positioning': 'Chọn vị trí',
+  'vision': 'Tầm nhìn', 'short_passing': 'Chuyền ngắn', 'long_passing': 'Chuyền dài', 'crossing': 'Tạt bóng',
+  'free_kick': 'Đá phạt', 'curve': 'Độ xoáy', 'agility': 'Nhanh nhẹn', 'balance': 'Thăng bằng',
+  'reactions': 'Phản ứng', 'ball_control': 'Khống chế bóng', 'dribbling_': 'Rê bóng', 'composure': 'Bình tĩnh',
+  'interceptions': 'Cắt bóng', 'heading_accuracy': 'Đánh đầu', 'marking': 'Kèm người',
+  'standing_tackle': 'Tắc bóng', 'sliding_tackle': 'Xoạc bóng', 'jumping': 'Bật nhảy', 'stamina': 'Sức bền',
+  'strength': 'Sức mạnh', 'aggression': 'Quyết liệt', 'gk_diving': 'Đổ người', 'gk_handling': 'Bắt bóng',
+  'gk_kicking': 'Phát bóng', 'gk_reflexes': 'Phản xạ', 'gk_positioning': 'Chọn vị trí (TM)'
+} %}
+{% set ids = enriched_players|map(attribute='id')|list %}
+{% set idx = ids.index(player.id) if player.id in ids else -1 %}
+
+<div class="actions mb-2">
+    <a class="btn" href="{{ url_for('squad') }}">← Đội hình</a>
+    {% if idx > 0 %}<a class="btn" href="{{ url_for('player_detail', player_id=ids[idx - 1]) }}">‹ Trước</a>{% endif %}
+    {% if idx >= 0 and idx < ids|length - 1 %}<a class="btn" href="{{ url_for('player_detail', player_id=ids[idx + 1]) }}">Sau ›</a>{% endif %}
+</div>
+
+<div class="detail">
+    <div>
+        <div class="fc-card {{ player.tier }}">
+            <div class="top">
+                <div><div class="big" id="cardOvr">{{ player.fc_ovr }}</div><div class="pos">{{ player.position }}</div></div>
+                <div class="right"><div class="pos">{{ player.flag_code }}</div><div class="fn">{{ player.club_name }}</div></div>
+            </div>
+            {% set lname = player.name|lower %}
+            {% set img = 'doku.png' if 'doku' in lname else 'haaland.png' if 'haaland' in lname else 'mbappe.png' if 'mbappe' in lname else 'quanghai.png' if 'quang hải' in lname else 'default_avatar.png' %}
+            <img src="{{ url_for('static', filename='images/players/' ~ img) }}" alt="">
+            <div class="fn">{{ player.first_name }}</div>
+            <div class="ln">{{ player.last_name }}</div>
+            <div class="six" id="six">
+                <div>{{ player.pac }}<span>PAC</span></div><div>{{ player.sho }}<span>SHO</span></div><div>{{ player.pas }}<span>PAS</span></div>
+                <div>{{ player.dri }}<span>DRI</span></div><div>{{ player.def }}<span>DEF</span></div><div>{{ player.phy }}<span>PHY</span></div>
+            </div>
+        </div>
+
+        <div class="card mt-2">
+            <h3>📈 Nâng cấp</h3>
+            <p class="muted" style="margin:0 0 6px">Cấp huấn luyện: <b id="tLvl">{{ player.training_level }}</b>/{{ player.max_training_level }}</p>
+            <div class="bar mb-2"><i id="tBar" style="width: {{ (player.training_level / player.max_training_level * 100)|round }}%"></i></div>
+            <button class="btn primary block" id="trainBtn">🏋️ Huấn luyện (+1 chỉ số · $120,000)</button>
+            <p class="muted mt-2" style="margin-bottom:6px">Hạng: <b id="rLvl">{{ player.rank_level }}</b>/{{ player.max_rank_level }}</p>
+            <div class="lvl mb-2" id="rankDots">{% for i in range(player.max_rank_level) %}<i class="{{ 'on' if i < player.rank_level }}"></i>{% endfor %}</div>
+            <button class="btn gold block" id="rankBtn">🔶 Thăng hạng (+2 chỉ số · $<span id="rankCost">{{ "{:,}".format(400000 * player.rank_level) }}</span>)</button>
+            <p class="muted mt-2" style="margin:0">Ngân sách CLB: $<b id="money">{{ "{:,}".format(club.money) }}</b></p>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <h2 style="margin-bottom:4px">{{ player.name }}</h2>
+            <p class="muted" style="margin:0 0 12px">{{ player.position }} · Vị trí phụ: {{ player.secondary_pos }} · {{ player.nationality }} · {{ player.league }}</p>
+            <div class="stats">
+                <div class="stat"><b>{{ player.age }}</b><span>Tuổi</span></div>
+                <div class="stat"><b>{{ player.height }} cm</b><span>Chiều cao</span></div>
+                <div class="stat"><b>{{ player.weight }} kg</b><span>Cân nặng</span></div>
+                <div class="stat"><b>{{ '★' * player.weak_foot }}</b><span>Chân không thuận</span></div>
+                <div class="stat"><b>{{ '★' * player.skill_moves }}</b><span>Kỹ thuật</span></div>
+                <div class="stat"><b>{{ player.goals }} / {{ player.assists }}</b><span>Bàn / Kiến tạo</span></div>
+                <div class="stat"><b>{{ player.matches_played }}</b><span>Trận</span></div>
+                <div class="stat"><b>{{ player.stamina|round(1) }}</b><span>Thể lực</span></div>
+                <div class="stat"><b>${{ "{:,}".format(player.contract_wage) }}</b><span>Lương/tuần</span></div>
+                <div class="stat"><b>${{ "{:,}".format(player.market_value) }}</b><span>Giá trị</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>{{ player.playstyle_icon }} Lối chơi: {{ player.playstyle_name }}</h3>
+            <p class="muted" style="margin:0">{{ player.playstyle_desc }}</p>
+            <div class="grid mt-2">
+                {% for ps in player.playstyles_list %}
+                <div class="stat"><b style="font-size:16px">{{ ps.icon }} {{ ps.name }}</b><span>{{ ps.desc }}</span></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Chỉ số chi tiết</h3>
+            <div class="attr-groups">
+                {% for group, items in player.attrs.items() %}
+                <div class="stat">
+                    <b style="font-size:15px; margin-bottom:6px">{{ labels.get(group, group) }}</b>
+                    {% for k, v in items.items() %}
+                    <div class="attr">
+                        <span>{{ labels.get(k, k) if not (group == 'dribbling' and k == 'dribbling') else 'Rê bóng' }}</span><b>{{ v }}</b>
+                        <div class="bar {{ 'low' if v < 50 else 'warn' if v < 70 else '' }}"><i style="width: {{ [v, 100]|min }}%"></i></div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toast" class="alert success" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:none;z-index:200"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = { train: "{{ url_for('api_train_player') }}", rank: "{{ url_for('api_rankup_player') }}" };
+const PID = {{ player.id }};
+function toast(msg, ok) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.className = 'alert ' + (ok ? 'success' : 'error'); t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600);
+}
+function update(p, money) {
+  document.getElementById('cardOvr').textContent = p.fc_ovr;
+  document.getElementById('six').innerHTML = [['pac','PAC'],['sho','SHO'],['pas','PAS'],['dri','DRI'],['def','DEF'],['phy','PHY']]
+    .map(([k, l]) => `<div>${p[k]}<span>${l}</span></div>`).join('');
+  document.getElementById('tLvl').textContent = p.training_level;
+  document.getElementById('tBar').style.width = (p.training_level / p.max_training_level * 100) + '%';
+  document.getElementById('rLvl').textContent = p.rank_level;
+  document.getElementById('rankDots').innerHTML = Array.from({ length: p.max_rank_level }, (_, i) => `<i class="${i < p.rank_level ? 'on' : ''}"></i>`).join('');
+  document.getElementById('rankCost').textContent = (400000 * p.rank_level).toLocaleString('en-US');
+  document.getElementById('money').textContent = Number(money).toLocaleString('en-US');
+}
+async function call(url) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player_id: PID }) });
+  const d = await r.json();
+  if (!d.success) { toast(d.error || 'Có lỗi xảy ra', false); return; }
+  update(d.player, d.club_money); toast(d.message, true);
+}
+document.getElementById('trainBtn').onclick = () => call(API.train);
+document.getElementById('rankBtn').onclick = () => call(API.rank);
+</script>
+{% endblock %}

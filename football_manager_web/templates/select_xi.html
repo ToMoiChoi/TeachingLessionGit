@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Xếp đội hình{% endblock %}
+{% set club = team %}
+{% block content %}
+<h1>📌 Xếp đội hình (chọn 11 đá chính)</h1>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="POST" id="xiForm">
+    <div class="card mb-2">
+        <div class="actions" style="align-items:center">
+            <label for="formation" class="muted">Sơ đồ:</label>
+            <select name="formation" id="formation" style="width:auto">
+                {% for f in ['4-3-3', '4-2-3-1', '5-3-2'] %}
+                <option value="{{ f }}" {{ 'selected' if team.formation == f }}>{{ f }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="auto" value="1" class="btn primary">🤖 Tự động xếp đội hình (AI)</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">(Hệ thống sẽ chọn 11 cầu thủ phù hợp nhất với sơ đồ {{ team.formation }})</p>
+    </div>
+
+    <div class="card">
+        <p style="margin-top:0">Đã chọn: <b id="count">0</b>/11</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>Chọn</th><th>Tên</th><th>Vị trí</th><th class="num">OVR</th><th class="num">Thể lực</th><th>Vị trí yêu thích</th></tr>
+                </thead>
+                <tbody>
+                {% for p in players %}
+                <tr>
+                    <td><input type="checkbox" name="starting" value="{{ p.id }}" {{ 'checked' if p.is_starting }} aria-label="Chọn {{ p.name }}"></td>
+                    <td><a href="{{ url_for('player_detail', player_id=p.id) }}">{{ p.name }}</a></td>
+                    <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
+                    <td class="num"><span class="ovr">{{ p.overall }}</span></td>
+                    <td class="num">{{ p.stamina|round(1) }}</td>
+                    <td>{{ (p.preferred_positions or '[]')|replace('[', '')|replace(']', '')|replace('"', '') or '–' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="actions mt-2">
+            <button type="submit" class="btn primary">Xác nhận đội hình</button>
+            <a href="{{ url_for('dashboard') }}" class="btn secondary">← Quay lại</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+const boxes = document.querySelectorAll('input[name=starting]');
+const count = document.getElementById('count');
+function upd() { const n = [...boxes].filter(b => b.checked).length; count.textContent = n; count.style.color = n === 11 ? 'var(--accent)' : 'var(--danger)'; }
+boxes.forEach(b => b.addEventListener('change', upd)); upd();
+</script>
+{% endblock %}

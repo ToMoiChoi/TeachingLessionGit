@@ -1,10 +1,32 @@
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 *.log
+
+# Moi truong ao / IDE
+.venv/
+venv/
+.idea/
+.vscode/
+.claude/
+
+# Ban build tam (pygbag / PyInstaller) - tu sinh lai khi build
+*/build/
+*/dist/
 web-cache/
-*/build/web-cache/
+*.exe
+# File apk/tar.gz nam ngay trong thu muc code game (ban that nam o games/<id>/)
+/*/*.apk
+/*/*.tar.gz
+
+# Anh chup man hinh khi choi, du lieu chay tam
 screenshots/
 */screenshots/
+*/instance/
+*.db
+football_manager_web/data/
+football_manager_web/static/uploads/
+.last_game_id

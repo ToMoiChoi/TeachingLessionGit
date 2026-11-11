@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Tải game{% endblock %}
+{% block container_class %}narrow{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>📂 Tải game đã lưu</h1>
+    <p class="muted">Nhập passcode bạn đã dùng khi lưu game.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST">
+        <div class="form-group">
+            <label for="passcode">Passcode:</label>
+            <input type="password" id="passcode" name="passcode" required autocomplete="off">
+        </div>
+        <button type="submit" class="btn primary block">📂 Tải game</button>
+        <a href="{{ url_for('index') }}" class="btn secondary block">← Quay lại</a>
+    </form>
+</div>
+{% endblock %}

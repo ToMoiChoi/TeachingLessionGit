@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Kết quả{% endblock %}
+{% block content %}
+{% set cls = 'win' if match.result == 'Thắng' else ('loss' if match.result == 'Thua' else 'draw') %}
+<h1>🏁 Kết quả vòng {{ match.round }}</h1>
+<div class="card">
+    <div class="scoreboard">
+        <div class="team">{{ match.home }}</div>
+        <div class="score">{{ match.home_goals }} - {{ match.away_goals }}</div>
+        <div class="team">{{ match.away }}</div>
+    </div>
+    <p class="center mt-2">
+        <span class="badge {{ cls }}" style="font-size:15px;padding:4px 14px">{{ match.result }}</span>
+        <span class="muted">· +{{ match.points }} điểm</span>
+    </p>
+</div>
+
+<div class="card">
+    <h3>📺 Diễn biến</h3>
+    <div class="events">
+        {% for e in match.events %}
+        {% set d = e.description %}
+        <div class="event {{ 'goal' if '⚽' in d else ('chance' if '🧤' in d else 'info') }}">{{ d }}</div>
+        {% else %}
+        <p class="muted">Không có diễn biến nào.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="actions mt-2">
+    <a class="btn primary" href="{{ url_for('dashboard') }}">🏠 Về bảng điều khiển</a>
+    <a class="btn" href="{{ url_for('standings') }}">🏆 Bảng xếp hạng</a>
+    <a class="btn" href="{{ url_for('match_history') }}">📜 Lịch sử trận đấu</a>
+</div>
+{% endblock %}

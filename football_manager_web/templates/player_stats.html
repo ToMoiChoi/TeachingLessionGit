@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Thống kê cầu thủ{% endblock %}
+{% block content %}
+<h1>📊 Thống kê cầu thủ</h1>
+{% set top = players[0] if players else None %}
+<div class="stats mb-2">
+    <div class="stat"><b>{{ players|sum(attribute='goals') }}</b><span>Tổng bàn thắng</span></div>
+    <div class="stat"><b>{{ players|map(attribute='assists')|map('default', 0)|sum }}</b><span>Tổng kiến tạo</span></div>
+    <div class="stat"><b>{{ top.name if top and top.goals else '–' }}</b><span>Vua phá lưới</span></div>
+    <div class="stat"><b>{{ players|length }}</b><span>Cầu thủ</span></div>
+</div>
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr><th>Cầu thủ</th><th>VT</th><th class="num">OVR</th><th class="num">Trận</th><th class="num">⚽</th>
+                <th class="num">🅰️</th><th class="num">🟨</th><th class="num">🟥</th><th>Thể lực</th></tr>
+            </thead>
+            <tbody>
+            {% for p in players %}
+            <tr>
+                <td><a href="{{ url_for('player_detail', player_id=p.id) }}">{{ p.name }}</a></td>
+                <td><span class="badge pos {{ 'gk' if p.position == 'GK' }}">{{ p.position }}</span></td>
+                <td class="num"><span class="ovr {{ 'gold' if p.overall >= 85 }}">{{ p.overall|round|int }}</span></td>
+                <td class="num">{{ p.matches_played }}</td>
+                <td class="num"><b>{{ p.goals }}</b></td>
+                <td class="num">{{ p.assists or 0 }}</td>
+                <td class="num">{{ p.yellow_cards }}</td>
+                <td class="num">{{ p.red_cards }}</td>
+                <td><div class="bar {{ 'low' if p.stamina < 40 else ('warn' if p.stamina < 70) }}"><i style="width: {{ p.stamina|round|int }}%"></i></div></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

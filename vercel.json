@@ -1,4 +1,14 @@
 {
   "version": 2,
-  "trailingSlash": true
+  "trailingSlash": true,
+  "functions": {
+    "api/football.py": {
+      "includeFiles": "football_manager_web/**",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/football", "destination": "/api/football" },
+    { "source": "/football/:path*", "destination": "/api/football" }
+  ]
 }

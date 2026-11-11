@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ{% endblock %}
+{% block content %}
+<section class="hero">
+    <h1>⚽ Football <span>Manager</span></h1>
+    <p>Trở thành huấn luyện viên: tạo câu lạc bộ, xếp đội hình, chiến thuật, chuyển nhượng, đào tạo cầu thủ trẻ
+        và dẫn dắt đội bóng qua 18 vòng đấu để giành chức vô địch.</p>
+    <div class="actions center">
+        <a class="btn primary" href="{{ url_for('create_club') }}">🏟️ Tạo CLB mới</a>
+        <a class="btn" href="{{ url_for('load') }}">📂 Tải game đã lưu</a>
+        {% if session.get('club_id') %}
+        <a class="btn" href="{{ url_for('dashboard') }}">▶️ Tiếp tục</a>
+        {% endif %}
+    </div>
+</section>
+<div class="grid mt-3">
+    <div class="tile"><div class="ic">👕</div><h3>Xếp đội hình</h3><p>Sơ đồ 4-3-3, 4-2-3-1, 5-3-2; AI tự chọn 11 người phù hợp nhất.</p></div>
+    <div class="tile"><div class="ic">📺</div><h3>Trận đấu trực tiếp</h3><p>Theo dõi từng phút, đổi chiến thuật và thay người khi cầu thủ mệt.</p></div>
+    <div class="tile"><div class="ic">🌱</div><h3>Lò đào tạo trẻ</h3><p>Tuyển trạch tài năng từ Việt Nam, Nam Mỹ, châu Âu… rồi đôn lên đội một.</p></div>
+    <div class="tile"><div class="ic">💱</div><h3>Chuyển nhượng & tài trợ</h3><p>Mua bán cầu thủ, ký hợp đồng tài trợ để tăng ngân sách.</p></div>
+</div>
+{% endblock %}

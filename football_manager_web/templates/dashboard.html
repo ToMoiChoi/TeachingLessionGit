@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Bảng điều khiển{% endblock %}
+{% block content %}
+<h1>🏟️ {{ club.name }}</h1>
+<p class="muted">HLV {{ club.coach.name if club.coach else 'Chưa có' }} · Sơ đồ {{ club.formation }} ·
+    Chiến thuật {{ {'Tan cong': 'Tấn công', 'Phong thu': 'Phòng thủ'}.get(club.tactic, 'Cân bằng') }}</p>
+
+{% if season_complete %}
+<div class="alert success">🏁 Mùa giải đã kết thúc! <a href="{{ url_for('season_end') }}">Xem tổng kết mùa giải →</a></div>
+{% endif %}
+
+<div class="stats mb-2">
+    <div class="stat"><b>{{ club.round }}/18</b><span>Vòng đã đấu</span></div>
+    <div class="stat"><b>{{ club.points }}</b><span>Điểm</span></div>
+    <div class="stat"><b>{{ club.position or '–' }}</b><span>Thứ hạng</span></div>
+    <div class="stat"><b>${{ "{:,}".format(club.money) }}</b><span>Ngân sách</span></div>
+    <div class="stat"><b>{{ club.players|length }}</b><span>Cầu thủ</span></div>
+</div>
+
+<div class="actions mb-2">
+    {% if not season_complete %}
+    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Đá vòng {{ club.round + 1 }}</a>
+    {% else %}
+    <a class="btn gold" href="{{ url_for('season_end') }}">🏁 Tổng kết mùa giải</a>
+    {% endif %}
+    <a class="btn" href="{{ url_for('squad') }}">👕 Đội hình</a>
+    <a class="btn" href="{{ url_for('select_xi') }}">📌 Chọn 11 đá chính</a>
+</div>
+
+<div class="grid">
+    <a class="tile" href="{{ url_for('squad') }}"><div class="ic">👕</div><h3>Đội hình</h3><p>Sân bóng, đổi vị trí, đổi sơ đồ, xem chỉ số.</p></a>
+    <a class="tile" href="{{ url_for('standings') }}"><div class="ic">🏆</div><h3>Bảng xếp hạng</h3><p>Vị trí của CLB trong giải.</p></a>
+    <a class="tile" href="{{ url_for('schedule') }}"><div class="ic">📅</div><h3>Lịch thi đấu</h3><p>18 vòng đấu của mùa giải.</p></a>
+    <a class="tile" href="{{ url_for('training') }}"><div class="ic">🏋️</div><h3>Tập luyện</h3><p>Nâng chỉ số cầu thủ.</p></a>
+    <a class="tile" href="{{ url_for('transfer_market') }}"><div class="ic">💱</div><h3>Chuyển nhượng</h3><p>Mua, bán, nhận đề nghị.</p></a>
+    <a class="tile" href="{{ url_for('youth_academy') }}"><div class="ic">🌱</div><h3>Lò đào tạo trẻ</h3><p>Tuyển trạch và phát triển tài năng.</p></a>
+    <a class="tile" href="{{ url_for('sponsorship') }}"><div class="ic">🤝</div><h3>Tài trợ</h3><p>Hợp đồng: {{ club.sponsor_name }}</p></a>
+    <a class="tile" href="{{ url_for('player_stats') }}"><div class="ic">📊</div><h3>Thống kê cầu thủ</h3><p>Bàn thắng, kiến tạo, thẻ phạt.</p></a>
+    <a class="tile" href="{{ url_for('match_history') }}"><div class="ic">📜</div><h3>Lịch sử trận đấu</h3><p>Kết quả các trận đã đá.</p></a>
+    <a class="tile" href="{{ url_for('trophy_room') }}"><div class="ic">🏅</div><h3>Phòng danh hiệu</h3><p>Các chức vô địch đã giành.</p></a>
+    <a class="tile" href="{{ url_for('salary') }}"><div class="ic">💵</div><h3>Quỹ lương</h3><p>Lương và giá trị cầu thủ.</p></a>
+    <a class="tile" href="{{ url_for('save') }}"><div class="ic">💾</div><h3>Lưu game</h3><p>Lưu bằng mã bí mật.</p></a>
+</div>
+{% endblock %}

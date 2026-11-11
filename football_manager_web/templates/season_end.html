@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Tổng kết mùa giải{% endblock %}
+{% block container_class %}narrow{% endblock %}
+{% block content %}
+<div class="card center">
+    <h1>🏁 Tổng kết mùa giải</h1>
+    <p style="font-size:17px">{{ message }}</p>
+    {% if club is defined and club %}
+    <div class="stats mt-2">
+        <div class="stat"><b>{{ club.season }}</b><span>Mùa giải mới</span></div>
+        <div class="stat"><b>{{ {'Hang 1': 'Hạng 1', 'Hang 2': 'Hạng 2'}.get(club.league, club.league) }}</b><span>Giải đấu</span></div>
+        <div class="stat"><b>${{ "{:,}".format(club.money) }}</b><span>Ngân sách (đã trừ lương)</span></div>
+    </div>
+    <div class="actions center mt-3">
+        <a class="btn primary" href="{{ url_for('dashboard') }}">▶️ Bắt đầu mùa mới</a>
+        <a class="btn" href="{{ url_for('trophy_room') }}">🏅 Phòng danh hiệu</a>
+    </div>
+    {% else %}
+    <div class="actions center mt-3">
+        <a class="btn primary" href="{{ url_for('create_club') }}">🏟️ Tạo CLB mới</a>
+        <a class="btn" href="{{ url_for('index') }}">🏠 Trang chủ</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

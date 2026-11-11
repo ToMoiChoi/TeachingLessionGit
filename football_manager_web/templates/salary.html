@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Quỹ lương{% endblock %}
+{% block content %}
+<h1>💵 Quỹ lương</h1>
+<p class="muted">Lương mỗi mùa = chỉ số tổng (OVR) × 10.000. Toàn bộ lương bị trừ khi kết thúc mùa giải;
+    nếu không đủ tiền, CLB sẽ phá sản (Game Over).</p>
+<div class="stats mb-2">
+    <div class="stat"><b>${{ "{:,}".format(total_wage) }}</b><span>Tổng lương / mùa</span></div>
+    <div class="stat"><b>${{ "{:,}".format(avg_salary) }}</b><span>Lương trung bình</span></div>
+    <div class="stat"><b class="{{ 'green' if club.money >= total_wage else 'red' }}">${{ "{:,}".format(club.money) }}</b><span>Ngân sách hiện có</span></div>
+</div>
+{% if club.money < total_wage %}
+<div class="alert error">⚠️ Ngân sách không đủ trả lương cuối mùa! Hãy bán bớt cầu thủ hoặc ký hợp đồng tài trợ.</div>
+{% endif %}
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Cầu thủ</th><th>VT</th><th class="num">OVR</th><th class="num">Lương / mùa</th><th class="num">Giá trị</th></tr></thead>
+            <tbody>
+            {% for it in items|sort(attribute='salary', reverse=True) %}
+            <tr>
+                <td>{{ it.player.name }}</td>
+                <td><span class="badge pos {{ 'gk' if it.player.position == 'GK' }}">{{ it.player.position }}</span></td>
+                <td class="num">{{ it.player.overall|round|int }}</td>
+                <td class="num">${{ "{:,}".format(it.salary) }}</td>
+                <td class="num muted">${{ "{:,}".format(it.player.market_value or 0) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

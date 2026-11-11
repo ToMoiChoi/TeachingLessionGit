@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Hướng dẫn{% endblock %}
+{% block content %}
+{% if is_first_visit %}
+<div class="alert success">🎉 Chào mừng HLV mới! CLB của bạn đã được tạo cùng 18 cầu thủ. Đọc nhanh hướng dẫn rồi bắt đầu mùa giải nhé.</div>
+{% endif %}
+<h1>❓ Hướng dẫn chơi</h1>
+
+<div class="grid-2">
+    <div class="card">
+        <h3>1. 👕 Xếp đội hình</h3>
+        <p>Vào <b>Đội hình</b> để xem sân bóng. Chọn sơ đồ 4-3-3, 4-2-3-1 hoặc 5-3-2. Bấm hai cầu thủ để đổi chỗ, hoặc dùng
+            <b>Tự động xếp đội hình (AI)</b>: hệ thống chọn 11 người hợp vị trí nhất.</p>
+    </div>
+    <div class="card">
+        <h3>2. ▶️ Thi đấu</h3>
+        <p>Mỗi mùa có <b>18 vòng</b>. Chọn chiến thuật rồi bấm <b>Bắt đầu trận đấu</b>. Trận đấu diễn ra từng phút:
+            bàn thắng, cơ hội, cứu thua đều hiện trực tiếp.</p>
+    </div>
+    <div class="card">
+        <h3>3. 📋 Chiến thuật</h3>
+        <p><b>Tấn công</b>: tấn công +15%, phòng thủ −10%, cầu thủ mất sức nhanh hơn.<br>
+            <b>Phòng thủ</b>: phòng thủ +20%, tấn công −15%.<br>
+            <b>Cân bằng</b>: không cộng trừ. Có thể đổi ngay trong trận.</p>
+    </div>
+    <div class="card">
+        <h3>4. 💪 Thể lực & thay người</h3>
+        <p>Thể lực giảm dần theo từng phút và làm cầu thủ yếu đi. Dưới <b>65%</b> sẽ có cảnh báo, khi đó hãy thay người
+            (tối đa <b>3 lần</b> mỗi trận). Trước mỗi trận cầu thủ hồi +20 thể lực.</p>
+    </div>
+    <div class="card">
+        <h3>5. 💰 Tiền & tài trợ</h3>
+        <p>Sau mỗi trận bạn nhận tiền tài trợ hằng tuần, thắng thì có thêm thưởng. Ký hợp đồng tài trợ lớn hơn ở mục
+            <b>Tài trợ</b>. Dùng tiền để mua cầu thủ, tập luyện, tuyển trạch cầu thủ trẻ.</p>
+    </div>
+    <div class="card">
+        <h3>6. 💾 Lưu game</h3>
+        <p>Vào <b>Lưu</b>, đặt một <b>mã bí mật</b>. Lần sau chọn <b>Tải game đã lưu</b> ở trang chủ và nhập lại mã đó
+            để chơi tiếp.</p>
+    </div>
+</div>
+
+<div class="actions mt-3">
+    {% if club %}
+    <a class="btn primary" href="{{ url_for('squad') }}">👕 Đến đội hình</a>
+    <a class="btn" href="{{ url_for('dashboard') }}">🏠 Bảng điều khiển</a>
+    {% else %}
+    <a class="btn primary" href="{{ url_for('create_club') }}">🏟️ Tạo CLB mới</a>
+    <a class="btn" href="{{ url_for('index') }}">← Trang chủ</a>
+    {% endif %}
+</div>
+{% endblock %}

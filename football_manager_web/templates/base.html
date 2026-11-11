@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Football Manager{% endblock %} · Football Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% set _club = club if club is defined and club else None %}
+<header class="topbar">
+    <a class="brand" href="{{ url_for('dashboard') if _club else url_for('index') }}">⚽ Football <span>Manager</span></a>
+    {% if _club %}
+    <div class="club-chip">
+        <span>🏟️ <b>{{ _club.name }}</b></span>
+        <span class="muted">{{ 'Hạng 1' if _club.league == 'Hang 1' else 'Hạng 2' }} · Mùa {{ _club.season }} · Vòng {{ _club.round }}/18</span>
+        <span>💰 <b>${{ "{:,}".format(_club.money) }}</b></span>
+    </div>
+    {% endif %}
+</header>
+{% if _club %}
+{% set ep = request.endpoint %}
+<nav class="nav" aria-label="Điều hướng">
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">🏠 Bảng điều khiển</a>
+    <a href="{{ url_for('squad') }}" class="{{ 'active' if ep == 'squad' }}">👕 Đội hình</a>
+    <a href="{{ url_for('play_match') }}" class="{{ 'active' if ep in ('play_match', 'live_match') }}">▶️ Thi đấu</a>
+    <a href="{{ url_for('standings') }}" class="{{ 'active' if ep == 'standings' }}">🏆 BXH</a>
+    <a href="{{ url_for('schedule') }}" class="{{ 'active' if ep == 'schedule' }}">📅 Lịch</a>
+    <a href="{{ url_for('training') }}" class="{{ 'active' if ep == 'training' }}">🏋️ Tập luyện</a>
+    <a href="{{ url_for('transfer_market') }}" class="{{ 'active' if ep == 'transfer_market' }}">💱 Chuyển nhượng</a>
+    <a href="{{ url_for('youth_academy') }}" class="{{ 'active' if ep == 'youth_academy' }}">🌱 Lò đào tạo</a>
+    <a href="{{ url_for('sponsorship') }}" class="{{ 'active' if ep == 'sponsorship' }}">🤝 Tài trợ</a>
+    <a href="{{ url_for('player_stats') }}" class="{{ 'active' if ep == 'player_stats' }}">📊 Thống kê</a>
+    <a href="{{ url_for('match_history') }}" class="{{ 'active' if ep == 'match_history' }}">📜 Lịch sử</a>
+    <a href="{{ url_for('trophy_room') }}" class="{{ 'active' if ep == 'trophy_room' }}">🏅 Danh hiệu</a>
+    <a href="{{ url_for('salary') }}" class="{{ 'active' if ep in ('salary', 'salary_view') }}">💵 Lương</a>
+    <a href="{{ url_for('save') }}" class="{{ 'active' if ep == 'save' }}">💾 Lưu</a>
+    <a href="{{ url_for('tutorial') }}" class="{{ 'active' if ep == 'tutorial' }}">❓ Hướng dẫn</a>
+    <a href="{{ url_for('logout') }}">🚪 Thoát</a>
+</nav>
+{% endif %}
+<main class="container {% block container_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

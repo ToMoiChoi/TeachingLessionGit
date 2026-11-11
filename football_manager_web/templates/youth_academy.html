@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Lò đào tạo trẻ{% endblock %}
+{% block content %}
+<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
+<h1 class="mt-1">🌱 Học Viện Đào Tạo Trẻ</h1>
+<p class="muted">Cử tuyển trạch viên đi khắp thế giới để tìm thần đồng, huấn luyện các em rồi đôn lên Đội 1.</p>
+
+{% if message %}<div class="alert success">✅ {{ message }}</div>{% endif %}
+{% if error %}<div class="alert error">⚠️ {{ error }}</div>{% endif %}
+
+<h2 class="mt-2">🔭 Cử tuyển trạch viên</h2>
+{% set hubs = [
+    ('vietnam', '🇻🇳', 'Học Viện Trẻ Việt Nam', 150000, '72–88', 'Học Viện JMG / PVF', 'Chi phí thấp, tài năng nội địa.'),
+    ('africa', '🌍', 'Học Viện Thể Lực Châu Phi', 300000, '76–92', 'Right to Dream / ASEC', 'Cầu thủ được cộng thêm +10 tốc độ.'),
+    ('south_america', '🌎', 'Lò Đào Tạo Nam Mỹ', 450000, '82–95', 'Santos / Boca Juniors', 'Cầu thủ được cộng thêm +6 tấn công.'),
+    ('europe', '🇪🇺', 'Lò Đào Tạo Châu Âu (Wonderkids)', 850000, '88–99', 'La Masia / Carrington / Ajax', 'Tiềm năng cao nhất, giá đắt nhất.'),
+] %}
+<div class="grid">
+    {% for key, flag, name, cost, pot, origin, note in hubs %}
+    <form class="card" method="POST" action="{{ url_for('scout_wonderkids') }}">
+        <input type="hidden" name="region" value="{{ key }}">
+        <h3>{{ flag }} {{ name }}</h3>
+        <p class="muted" style="margin:0 0 8px">{{ origin }}</p>
+        <p style="margin:0 0 4px">Tiềm năng: <b class="gold">{{ pot }}</b></p>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">{{ note }}</p>
+        <button class="btn primary block" type="submit" {{ 'disabled' if club.money < cost }}>
+            Cử Scout (${{ "{:,}".format(cost) }})
+        </button>
+    </form>
+    {% endfor %}
+</div>
+
+{% if scout_results %}
+<h2 class="mt-3">✨ Tài năng vừa phát hiện</h2>
+<div class="grid">
+    {% for t in scout_results %}
+    <div class="card">
+        <div class="actions" style="justify-content:space-between;align-items:center">
+            <span class="badge {{ 'gk' if t.position == 'GK' else 'pos' }}">{{ t.position }}</span>
+            <span class="ovr">{{ t.overall }}</span>
+        </div>
+        <h3 class="mt-1">{{ t.name }}</h3>
+        <p class="muted" style="margin:0 0 8px;font-size:13px">{{ t.age }} tuổi · {{ t.scout_origin }}</p>
+        <p style="margin:0 0 8px">Tiềm năng: <b class="gold">{{ t.potential }}</b></p>
+        <p class="muted" style="margin:0 0 12px;font-size:13px">ATK {{ t.attack }} · DEF {{ t.defense }} · SPD {{ t.speed }}</p>
+        <form method="POST" action="{{ url_for('sign_youth_player') }}">
+            <input type="hidden" name="talent_index" value="{{ loop.index0 }}">
+            <button class="btn gold block" type="submit">✍️ Ký hợp đồng đào tạo</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h2 class="mt-3">🎓 Học viên của CLB ({{ youth_players|length }})</h2>
+{% if youth_players %}
+<div class="card table-wrap">
+    <table>
+        <thead><tr>
+            <th>Tên</th><th>VT</th><th class="num">Tuổi</th><th class="num">OVR</th><th class="num">Tiềm năng</th>
+            <th class="num">ATK</th><th class="num">DEF</th><th class="num">SPD</th><th>Nguồn</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for yp in youth_players %}
+        <tr>
+            <td><b>{{ yp.name }}</b></td>
+            <td><span class="badge {{ 'gk' if yp.position == 'GK' else 'pos' }}">{{ yp.position }}</span></td>
+            <td class="num">{{ yp.age }}</td>
+            <td class="num"><span class="ovr">{{ yp.overall }}</span></td>
+            <td class="num gold">{{ yp.potential }}</td>
+            <td class="num">{{ yp.attack }}</td>
+            <td class="num">{{ yp.defense }}</td>
+            <td class="num">{{ yp.speed }}</td>
+            <td class="muted">{{ yp.scout_origin }}</td>
+            <td>
+                <div class="actions">
+                    <form method="POST" action="{{ url_for('train_youth_player') }}">
+                        <input type="hidden" name="youth_id" value="{{ yp.id }}">
+                        <button class="btn small" type="submit" title="Chi phí $50,000">🏋️ Huấn luyện</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('promote_youth', youth_id=yp.id) }}">
+                        <button class="btn small primary" type="submit">🚀 Đôn lên Đội 1</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('release_youth', youth_id=yp.id) }}"
+                          onsubmit="return confirm('Thanh lý hợp đồng với {{ yp.name }}?')">
+                        <button class="btn small danger" type="submit">✖</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card muted">Chưa có học viên nào. Hãy cử tuyển trạch viên để tìm tài năng trẻ!</div>
+{% endif %}
+{% endblock %}

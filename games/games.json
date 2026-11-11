@@ -3,27 +3,53 @@
     "id": "tunglamv2",
     "title": "Lotus Tactical FPS",
     "author": "Tùng Lâm",
-    "description": "Game bắn súng góc nhìn thứ nhất, phong cách chiến thuật.",
+    "description": "Game bắn súng góc nhìn thứ nhất, phong cách chiến thuật: mua súng đầu hiệp, đặt bom, phá bom, đấu với máy.",
     "tag": "FPS",
     "emoji": "🎯",
-    "color": "#e8590c"
+    "color": "#e8590c",
+    "playable": true,
+    "stats": { "files": 14, "lines": 4712 },
+    "features": ["Đồ hoạ 3D giả lập bằng kỹ thuật raycasting", "Cửa hàng vũ khí, 12 skin súng", "Bản đồ nhỏ (minimap), lựu đạn, đặt/phá bom", "Chia code thành các gói game / graphics / ui"],
+    "controls": [["W A S D", "Di chuyển"], ["Chuột", "Ngắm và bắn"], ["R", "Nạp đạn"], ["1 2 3", "Đổi vũ khí"], ["B", "Mở cửa hàng"], ["Space", "Nhảy"]]
   },
   {
     "id": "baonam",
     "title": "Blade Master 2D",
     "author": "Bảo Nam",
-    "description": "Game đối kháng 2D: chọn bản đồ, nhân vật, mua đồ trong shop rồi chiến.",
+    "description": "Game đối kháng 2D: chọn bản đồ, nhân vật, mua đồ trong shop rồi chiến với các boss.",
     "tag": "Đối kháng",
     "emoji": "⚔️",
-    "color": "#2f9e44"
+    "color": "#2f9e44",
+    "playable": true,
+    "stats": { "files": 7, "lines": 1417 },
+    "features": ["3 nhân vật, 3 bản đồ, nhiều màn boss", "Đòn nhẹ, đòn nặng, kỹ năng, đỡ đòn", "Cửa hàng nâng cấp bằng vàng", "Hiệu ứng hạt và âm thanh"],
+    "controls": [["A / D", "Di chuyển"], ["W / Space", "Nhảy"], ["E", "Đòn nhẹ"], ["Y", "Đòn nặng"], ["C", "Kỹ năng"], ["Z", "Đỡ đòn"]]
   },
   {
     "id": "cyberesc",
     "title": "CyberEsc",
     "author": "cyberesc",
-    "description": "Game platformer 2D phong cách Cyberpunk, vượt qua nhiều màn chơi.",
+    "description": "Game platformer 2D phong cách Cyberpunk: vượt qua 8 màn chơi, đánh boss, nâng cấp nhân vật.",
     "tag": "Platformer",
     "emoji": "🤖",
-    "color": "#7048e8"
+    "color": "#7048e8",
+    "playable": true,
+    "stats": { "files": 23, "lines": 2151 },
+    "features": ["8 màn chơi, mỗi màn là một file riêng", "3 loại súng và chém kiếm", "Lưu tiến trình, cửa hàng trang phục", "Tách riêng phần logic và phần vẽ hình"],
+    "controls": [["A / D", "Di chuyển"], ["W / Space", "Nhảy"], ["Chuột trái / K", "Bắn"], ["Chuột phải / J", "Chém"], ["1 2 3", "Đổi súng"], ["Esc", "Tạm dừng"]]
+  },
+  {
+    "id": "football",
+    "title": "Football Manager",
+    "author": "Đang cập nhật",
+    "description": "Ứng dụng web làm huấn luyện viên bóng đá (Flask + database): tạo CLB, xếp đội hình, đá trận trực tiếp từng phút và leo hạng qua 18 vòng.",
+    "tag": "Web app",
+    "emoji": "⚽",
+    "color": "#1c7ed6",
+    "playable": true,
+    "url": "football/",
+    "stats": { "files": 10, "lines": 2539 },
+    "features": ["Trận đấu trực tiếp: đổi chiến thuật, thay người khi mệt", "Sơ đồ 4-3-3 / 4-2-3-1 / 5-3-2, AI tự xếp đội hình", "Chuyển nhượng, lò đào tạo trẻ, hợp đồng tài trợ", "Bảng xếp hạng, lịch thi đấu, lưu game bằng mật mã"],
+    "controls": [["Chuột", "Bấm để chọn và thao tác"], ["Tạo CLB", "Bắt đầu game mới"], ["Thi đấu", "Đá vòng tiếp theo"]]
   }
 ]

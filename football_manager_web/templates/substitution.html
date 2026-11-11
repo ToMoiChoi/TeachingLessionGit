@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Thay người{% endblock %}
+{% block container_class %}narrow{% endblock %}
+{% block content %}
+<h1>🔄 Thay người</h1>
+<p class="muted">Đã thay {{ subs_used }}/3 người.</p>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<form method="POST" class="card">
+    <div class="form-group">
+        <label for="player_out">Cầu thủ ra sân</label>
+        <select name="player_out" id="player_out">
+            {% for p in xi %}
+            <option value="{{ p.id }}">{{ p.position }} · {{ p.name }} ({{ p.stamina|round|int }}%)</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="player_in">Cầu thủ vào sân</label>
+        <select name="player_in" id="player_in">
+            {% for p in subs %}
+            <option value="{{ p.id }}">{{ p.position }} · {{ p.name }} ({{ p.stamina|round|int }}%)</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="actions">
+        <button class="btn primary" type="submit" {{ 'disabled' if subs_used >= 3 or not subs }}>Xác nhận thay người</button>
+        <a class="btn secondary" href="{{ url_for('live_match') }}">← Quay lại trận đấu</a>
+    </div>
+</form>
+{% endblock %}

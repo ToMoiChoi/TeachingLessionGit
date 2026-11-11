@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Lịch thi đấu{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('dashboard') }}">← Bảng điều khiển</a></p>
+<h1>📅 Lịch thi đấu</h1>
+<p class="muted">18 vòng đấu của mùa giải. Vòng lẻ đá sân nhà, vòng chẵn đá sân khách.</p>
+{% set ns = namespace(played=true) %}
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th class="num">Vòng</th><th>Chủ nhà</th><th></th><th>Đội khách</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+            {% for r in rounds %}
+            {% if r.current %}{% set ns.played = false %}{% endif %}
+            <tr class="{{ 'me' if r.current }}">
+                <td class="num">{{ r.round }}</td>
+                <td>{{ r.home }}</td>
+                <td class="muted center">vs</td>
+                <td>{{ r.away }}</td>
+                <td>
+                    {% if r.current %}<a class="btn primary small" href="{{ url_for('play_match') }}">▶️ Vòng kế tiếp</a>
+                    {% elif ns.played %}<span class="badge win">Đã đá</span>
+                    {% else %}<span class="badge">Sắp tới</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

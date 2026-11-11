@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Đội hình{% endblock %}
+{% block head %}
+<style>
+  .squad-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .squad-layout { grid-template-columns: 1fr; } }
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .toolbar select { width: auto; }
+  .bench { display: flex; flex-direction: column; gap: 6px; max-height: 640px; overflow-y: auto; }
+  .row-player { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 10px; align-items: center;
+                padding: 8px 10px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); cursor: pointer; }
+  .row-player.selected { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  .row-player img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #0a1c13; }
+  .row-player .nm { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-player .sub { color: var(--muted); font-size: 12px; }
+  .tier-ucl .dot { border-color: #b67cff !important; }
+  .tier-gold .dot { border-color: var(--gold) !important; }
+  .tier-silver .dot { border-color: #c9d3cf !important; }
+  .hint { font-size: 13px; color: var(--muted); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; display: none; max-width: 90vw; }
+  .cmp { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px 12px; font-size: 14px; }
+  .cmp .k { color: var(--muted); text-align: center; }
+  .cmp .a { text-align: right; font-weight: 700; } .cmp .b { font-weight: 700; }
+  .cmp .win { color: var(--accent); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="toolbar">
+    <h1 style="margin:0">👕 Đội hình {{ club.name }}</h1>
+</div>
+<div class="stats mb-2">
+    <div class="stat"><b id="teamOvr">{{ team_ovr }}</b><span>OVR đội hình</span></div>
+    <div class="stat"><b>${{ "{:,}".format(team_value) }}</b><span>Giá trị đội hình</span></div>
+    <div class="stat"><b>{{ enriched_players|length }}</b><span>Cầu thủ</span></div>
+    <div class="stat"><b id="formLabel">{{ club.formation }}</b><span>Sơ đồ</span></div>
+</div>
+
+<div class="toolbar">
+    <label for="formation" class="muted">Sơ đồ:</label>
+    <select id="formation">
+        {% for f in ['4-3-3', '4-2-3-1', '5-3-2'] %}
+        <option value="{{ f }}" {{ 'selected' if club.formation == f }}>{{ f }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn primary" id="autoBtn">🤖 Tự động xếp đội hình tối ưu</button>
+    <button class="btn" id="compareBtn">⚖️ So sánh 2 cầu thủ</button>
+    <a class="btn" href="{{ url_for('select_xi') }}">📌 Chọn 11 thủ công</a>
+    <a class="btn gold" href="{{ url_for('play_match') }}">▶️ Thi đấu</a>
+</div>
+<p class="hint">Bấm một cầu thủ rồi bấm cầu thủ khác (trên sân hoặc dự bị) để đổi chỗ. Bấm đúp để xem thẻ chi tiết.</p>
+
+<div class="squad-layout">
+    <div class="card">
+        <div class="pitch" id="pitch"></div>
+    </div>
+    <div class="card">
+        <h3>🪑 Dự bị (<span id="subCount">{{ sub_players|length }}</span>)</h3>
+        <div class="bench" id="bench"></div>
+        <h3 class="mt-2">⭐ Đá chính</h3>
+        <div class="bench" id="starters"></div>
+    </div>
+</div>
+
+<div class="modal" id="cmpModal" role="dialog" aria-label="So sánh cầu thủ">
+    <div class="card">
+        <h2>⚖️ So sánh cầu thủ</h2>
+        <div id="cmpBody" class="muted">Chọn 2 cầu thủ trong danh sách (bấm lần lượt), rồi bấm “So sánh”.</div>
+        <div class="actions mt-2">
+            <button class="btn" id="cmpClose">Đóng</button>
+        </div>
+    </div>
+</div>
+<div id="toast" class="alert success"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = {
+  swap: "{{ url_for('api_swap_squad_players') }}",
+  formation: "{{ url_for('api_change_formation') }}",
+  auto: "{{ url_for('api_auto_build_squad') }}",
+  compare: "{{ url_for('api_compare_players') }}",
+  detail: "{{ url_for('player_detail', player_id=0) }}".replace(/0$/, ''),
+  img: "{{ url_for('static', filename='images/players/') }}",
+};
+let state = {
+  formation: {{ club.formation|tojson }},
+  starting: {{ starting_players|tojson }},
+  subs: {{ sub_players|tojson }},
+};
+// Toạ độ (x%, y%) các vị trí trên sân cho từng sơ đồ, thứ tự giống auto_select_xi
+const LAYOUTS = {
+  '4-3-3':   [['GK',50,90],['LB',15,72],['CB',38,76],['CB',62,76],['RB',85,72],['LW',16,30],['CM',30,52],['CM',50,56],['CM',70,52],['RW',84,30],['ST',50,16]],
+  '4-2-3-1': [['GK',50,90],['LB',15,72],['CB',38,76],['CB',62,76],['RB',85,72],['CDM',36,58],['CDM',64,58],['LW',16,34],['CAM',50,38],['RW',84,34],['ST',50,15]],
+  '5-3-2':   [['GK',50,90],['LWB',10,62],['CB',30,76],['CB',50,79],['CB',70,76],['RWB',90,62],['CM',30,48],['CM',50,52],['CM',70,48],['ST',38,18],['ST',62,18]],
+};
+const KNOWN_IMG = { doku: 'doku.png', haaland: 'haaland.png', mbappe: 'mbappe.png', 'quang hải': 'quanghai.png', quanghai: 'quanghai.png' };
+function imgFor(p) {
+  const n = (p.name || '').toLowerCase();
+  for (const k in KNOWN_IMG) if (n.includes(k)) return API.img + KNOWN_IMG[k];
+  return API.img + 'default_avatar.png';
+}
+let selected = null;      // id cầu thủ đang chọn để đổi
+let cmpMode = false, cmpPick = [];
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function toast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'alert ' + (ok ? 'success' : 'error'); t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600);
+}
+
+// Gán 11 cầu thủ đá chính vào các ô theo vị trí (ưu tiên đúng vị trí)
+function assignSlots() {
+  const layout = LAYOUTS[state.formation] || LAYOUTS['4-3-3'];
+  const pool = state.starting.slice();
+  const slots = layout.map(([pos, x, y]) => ({ pos, x, y, player: null }));
+  for (const s of slots) {
+    const i = pool.findIndex(p => p.position === s.pos);
+    if (i >= 0) s.player = pool.splice(i, 1)[0];
+  }
+  for (const s of slots) if (!s.player && pool.length) s.player = pool.shift();
+  return slots;
+}
+
+function onPick(id) {
+  if (cmpMode) {
+    if (!cmpPick.includes(id)) cmpPick.push(id);
+    render();
+    if (cmpPick.length === 2) doCompare();
+    return;
+  }
+  if (selected === null) { selected = id; render(); return; }
+  if (selected === id) { selected = null; render(); return; }
+  const a = selected; selected = null;
+  post(API.swap, { p1_id: a, p2_id: id });
+}
+
+function rowPlayer(p) {
+  const r = el('div', 'row-player' + ((selected === p.id || cmpPick.includes(p.id)) ? ' selected' : ''));
+  const img = el('img'); img.src = imgFor(p); img.alt = '';
+  const ovr = el('span', 'ovr' + (p.fc_ovr >= 85 ? ' gold' : ''), p.fc_ovr);
+  const mid = el('div'); mid.append(el('div', 'nm', p.name), el('div', 'sub', `${p.secondary_pos} · ${p.nationality} · ${p.age} tuổi`));
+  const pos = el('span', 'badge ' + (p.position === 'GK' ? 'gk' : 'pos'), p.position);
+  const bar = el('div', 'bar' + (p.stamina < 40 ? ' low' : p.stamina < 70 ? ' warn' : ''));
+  const fill = el('i'); fill.style.width = Math.max(0, Math.min(100, p.stamina)) + '%'; bar.append(fill); bar.title = 'Thể lực ' + Math.round(p.stamina);
+  r.append(img, ovr, mid, pos, bar);
+  r.onclick = () => onPick(p.id);
+  r.ondblclick = () => location.href = API.detail + p.id;
+  return r;
+}
+
+function render() {
+  document.getElementById('formLabel').textContent = state.formation;
+  const pitch = document.getElementById('pitch'); pitch.innerHTML = '';
+  for (const s of assignSlots()) {
+    const d = el('div', 'slot ' + (s.player ? s.player.tier : ''));
+    d.style.left = s.x + '%'; d.style.top = s.y + '%';
+    if (s.player && (selected === s.player.id || cmpPick.includes(s.player.id))) d.classList.add('selected');
+    const dot = el('div', 'dot', s.player ? s.player.fc_ovr : '–');
+    const lbl = el('div', 'lbl', s.player ? `${s.pos} · ${s.player.last_name}` : s.pos);
+    d.append(dot, lbl);
+    if (s.player) {
+      d.title = `${s.player.name} (${s.player.position}) – bấm đúp để xem thẻ`;
+      d.onclick = () => onPick(s.player.id);
+      d.ondblclick = () => location.href = API.detail + s.player.id;
+    }
+    pitch.append(d);
+  }
+  const bench = document.getElementById('bench'); bench.innerHTML = '';
+  state.subs.forEach(p => bench.append(rowPlayer(p)));
+  if (!state.subs.length) bench.append(el('p', 'muted', 'Không có cầu thủ dự bị.'));
+  const st = document.getElementById('starters'); st.innerHTML = '';
+  state.starting.slice().sort((a, b) => b.fc_ovr - a.fc_ovr).forEach(p => st.append(rowPlayer(p)));
+  document.getElementById('subCount').textContent = state.subs.length;
+}
+
+async function post(url, body) {
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    const d = await r.json();
+    if (!r.ok || d.error) { toast(d.error || 'Có lỗi xảy ra', false); render(); return null; }
+    if (d.starting_players) { state.starting = d.starting_players; state.subs = d.sub_players; }
+    if (d.formation) state.formation = d.formation;
+    if (d.team_ovr != null) document.getElementById('teamOvr').textContent = d.team_ovr;
+    if (d.message) toast(d.message);
+    render();
+    return d;
+  } catch (e) { toast('Không kết nối được máy chủ', false); return null; }
+}
+
+document.getElementById('formation').onchange = e => post(API.formation, { formation: e.target.value });
+document.getElementById('autoBtn').onclick = () => post(API.auto, {});
+
+// ---------- So sánh ----------
+const modal = document.getElementById('cmpModal');
+document.getElementById('compareBtn').onclick = () => {
+  cmpMode = !cmpMode; cmpPick = []; selected = null;
+  document.getElementById('compareBtn').textContent = cmpMode ? '✖ Huỷ so sánh' : '⚖️ So sánh 2 cầu thủ';
+  if (cmpMode) toast('Bấm chọn 2 cầu thủ để so sánh');
+  render();
+};
+document.getElementById('cmpClose').onclick = () => { modal.classList.remove('open'); };
+async function doCompare() {
+  const [a, b] = cmpPick;
+  cmpMode = false; cmpPick = [];
+  document.getElementById('compareBtn').textContent = '⚖️ So sánh 2 cầu thủ';
+  render();
+  const r = await fetch(API.compare, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p1_id: a, p2_id: b }) });
+  const d = await r.json();
+  const body = document.getElementById('cmpBody'); body.innerHTML = '';
+  if (!d.success) { body.textContent = d.error || 'Không so sánh được'; modal.classList.add('open'); return; }
+  const p1 = d.player1, p2 = d.player2;
+  const g = el('div', 'cmp');
+  g.append(el('div', 'a', p1.name), el('div', 'k', 'vs'), el('div', 'b', p2.name));
+  for (const [k, label] of [['fc_ovr', 'OVR'], ['pac', 'Tốc độ'], ['sho', 'Sút'], ['pas', 'Chuyền'], ['dri', 'Rê bóng'], ['def', 'Phòng thủ'], ['phy', 'Thể chất'], ['goals', 'Bàn thắng'], ['assists', 'Kiến tạo'], ['market_value', 'Giá trị ($)']]) {
+    const x = p1[k] || 0, y = p2[k] || 0;
+    const fmt = v => Number(v).toLocaleString('vi-VN');
+    g.append(el('div', 'a' + (x > y ? ' win' : ''), fmt(x)), el('div', 'k', label), el('div', 'b' + (y > x ? ' win' : ''), fmt(y)));
+  }
+  body.append(g);
+  modal.classList.add('open');
+}
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+render();
+</script>
+{% endblock %}

@@ -4,39 +4,89 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lớp Game Python</title>
+<meta name="description" content="Kết quả học tập lớp Lập trình Game Python: xem và chơi thử sản phẩm của từng bạn.">
 <link rel="icon" href="favicon.png">
 <style>
   :root {
-    --bg: #f6f7f9; --surface: #ffffff; --text: #1a1d23; --muted: #5f6673;
-    --border: #e2e5ea; --accent: #3b5bdb; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --text: #1a1d23; --muted: #5f6673;
+    --border: #e2e5ea; --accent: #3b5bdb; --accent-text: #ffffff; --ok: #2b8a3e; --ok-bg: #ebfbee;
+    --warn: #b35c00; --warn-bg: #fff4e6;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0f1115; --surface: #181b21; --text: #eceef2; --muted: #9aa1ad;
-            --border: #2a2e37; --accent: #748ffc; --shadow: 0 4px 16px rgba(0,0,0,.4); }
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --surface: #181b21; --surface-2: #20242c; --text: #eceef2; --muted: #9aa1ad;
+      --border: #2a2e37; --accent: #748ffc; --accent-text: #0f1115; --ok: #8ce99a; --ok-bg: #1b2b1f;
+      --warn: #ffc078; --warn-bg: #2e2216; --shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 16px 64px; }
-  header h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 36px); letter-spacing: -.02em; }
-  header p { margin: 0 0 28px; color: var(--muted); }
-  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-          overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column;
-          transition: transform .15s ease; }
-  .card:hover { transform: translateY(-3px); }
-  .cover { height: 130px; display: grid; place-items: center; font-size: 56px; color: #fff; }
-  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-  .tag { align-self: flex-start; font-size: 12px; font-weight: 600; padding: 2px 8px;
-         border-radius: 99px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
-  .card h2 { margin: 4px 0 0; font-size: 19px; }
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+  section { padding: 40px 0; }
+  h2.sec { font-size: clamp(22px, 3vw, 28px); margin: 0 0 6px; letter-spacing: -.01em; }
+  p.sec { margin: 0 0 24px; color: var(--muted); max-width: 680px; }
+
+  /* Hero */
+  .hero { padding: 56px 0 32px; }
+  .eyebrow { display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent);
+             text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+  .hero h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 46px); line-height: 1.15; letter-spacing: -.02em; }
+  .hero p { margin: 0; color: var(--muted); font-size: 18px; max-width: 640px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 32px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 14px; }
+
+  /* Skills */
+  .skills { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .skill { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+  .skill .ic { font-size: 24px; }
+  .skill h3 { margin: 6px 0 4px; font-size: 16px; }
+  .skill p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* Projects */
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+          box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .cover { height: 120px; display: grid; place-items: center; font-size: 52px; position: relative; }
+  .badge { position: absolute; top: 12px; right: 12px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.wip { background: var(--warn-bg); color: var(--warn); }
+  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+         background: var(--surface-2); color: var(--muted); }
+  .card h3 { margin: 2px 0 0; font-size: 20px; }
   .author { color: var(--muted); font-size: 14px; margin: 0; }
-  .desc { margin: 4px 0 12px; font-size: 14px; flex: 1; }
-  .actions { display: flex; gap: 8px; }
-  .btn { flex: 1; text-align: center; padding: 9px 12px; border-radius: 9px; font-weight: 600;
-         font-size: 14px; text-decoration: none; cursor: pointer; border: 1px solid var(--border);
-         background: var(--surface); color: var(--text); font-family: inherit; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .author b { color: var(--text); }
+  .desc { margin: 0; font-size: 14px; }
+  .nums { display: flex; gap: 16px; font-size: 13px; color: var(--muted); padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .nums b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .card ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  details { font-size: 14px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin-top: 8px; align-items: center; }
+  kbd { font: 600 12px/1 ui-monospace, Consolas, monospace; background: var(--surface-2); border: 1px solid var(--border);
+        border-bottom-width: 2px; border-radius: 6px; padding: 4px 7px; white-space: nowrap; }
+  .actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .btn { flex: 1; text-align: center; padding: 10px 12px; border-radius: 10px; font-weight: 600; font-size: 14px;
+         text-decoration: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface);
+         color: var(--text); font-family: inherit; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* Guide */
+  .steps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); counter-reset: s; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px 16px 58px; position: relative; font-size: 15px; }
+  .step::before { counter-increment: s; content: counter(s); position: absolute; left: 16px; top: 16px; width: 28px; height: 28px;
+                  border-radius: 50%; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .step b { display: block; margin-bottom: 2px; }
+  .step span { color: var(--muted); font-size: 14px; }
+
+  footer { padding: 28px 0 48px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); margin-top: 16px; }
 
   /* Player */
   #player { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; z-index: 10; }
@@ -45,19 +95,52 @@
   .bar strong { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar .btn { flex: none; background: #222; color: #eee; border-color: #333; }
   #frame { flex: 1; width: 100%; border: 0; background: #000; }
-  .hint { color: var(--muted); font-size: 13px; margin-top: 28px; }
-  code { background: var(--surface); border: 1px solid var(--border); padding: 1px 5px; border-radius: 5px; }
+  @media (max-width: 560px) { .bar #newtab { display: none; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>🎮 Lớp Game Python</h1>
-    <p>Tất cả game của các bạn trong lớp, chơi ngay trên trình duyệt. Bấm “Chơi” để bắt đầu.</p>
-  </header>
-  <main class="grid" id="grid"></main>
-  <p class="hint">Thêm game mới: build bằng pygbag, chép thư mục <code>build/web</code> vào <code>games/&lt;ten-game&gt;/</code>, rồi thêm một dòng vào <code>games/games.json</code>.</p>
-</div>
+<header class="wrap hero">
+  <span class="eyebrow">Kết quả học tập · Lập trình Game Python</span>
+  <h1>Sản phẩm của các con trong khóa học</h1>
+  <p>Mỗi bạn tự viết một trò chơi hoàn chỉnh bằng Python. Quý phụ huynh có thể xem từng sản phẩm, con đã làm được gì, và bấm “Chơi thử” để chơi ngay trên trình duyệt.</p>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <section class="wrap" aria-labelledby="h-projects">
+    <h2 class="sec" id="h-projects">Sản phẩm của từng bạn</h2>
+    <p class="sec">Các con số như số file và số dòng code cho thấy quy mô bài làm. Bấm “Cách chơi” để xem các phím điều khiển.</p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-skills">
+    <h2 class="sec" id="h-skills">Các con đã học được gì</h2>
+    <p class="sec">Để làm ra những trò chơi này, các con đã luyện tập các kỹ năng lập trình sau.</p>
+    <div class="skills">
+      <div class="skill"><div class="ic">🐍</div><h3>Python căn bản</h3><p>Biến, điều kiện, vòng lặp, hàm, danh sách và từ điển.</p></div>
+      <div class="skill"><div class="ic">🧱</div><h3>Lập trình hướng đối tượng</h3><p>Dùng class để mô tả nhân vật, quái vật, vũ khí, vật phẩm.</p></div>
+      <div class="skill"><div class="ic">🔁</div><h3>Vòng lặp trò chơi</h3><p>Nhận phím bấm, cập nhật trạng thái và vẽ lại màn hình 60 lần mỗi giây.</p></div>
+      <div class="skill"><div class="ic">📐</div><h3>Toán ứng dụng</h3><p>Toạ độ, vận tốc, trọng lực, va chạm và góc nhìn.</p></div>
+      <div class="skill"><div class="ic">🗂️</div><h3>Tổ chức code</h3><p>Chia chương trình lớn thành nhiều file, mỗi file một nhiệm vụ.</p></div>
+      <div class="skill"><div class="ic">🌐</div><h3>Git và đưa lên web</h3><p>Lưu lịch sử code bằng Git và xuất bản game để ai cũng chơi được.</p></div>
+    </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-guide">
+    <h2 class="sec" id="h-guide">Hướng dẫn chơi thử cho phụ huynh</h2>
+    <p class="sec">Các trò chơi cần bàn phím và chuột nên chơi tốt nhất trên máy tính.</p>
+    <div class="steps">
+      <div class="step"><b>Mở trên máy tính</b><span>Dùng Chrome hoặc Edge. Điện thoại có thể không chơi được vì cần bàn phím.</span></div>
+      <div class="step"><b>Bấm “Chơi thử”</b><span>Lần đầu tải mất khoảng 10–30 giây, các lần sau sẽ nhanh hơn.</span></div>
+      <div class="step"><b>Bấm vào màn hình game</b><span>Nếu game yêu cầu, hãy bấm vào khung game một lần để bật âm thanh và nhận phím.</span></div>
+      <div class="step"><b>Thoát game</b><span>Bấm “← Quay lại” ở góc trên hoặc nút Back của trình duyệt.</span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  Lớp Lập trình Game Python · Mã nguồn được lưu trên GitHub và cập nhật mỗi khi các con nộp bài mới.
+</footer>
 
 <div id="player" role="dialog" aria-label="Đang chơi game">
   <div class="bar">
@@ -66,31 +149,68 @@
     <button class="btn" id="full">Toàn màn hình</button>
     <a class="btn" id="newtab" target="_blank" rel="noopener">Mở tab mới</a>
   </div>
-  <iframe id="frame" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe>
+  <iframe id="frame" title="Khung chơi game" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe>
 </div>
 
 <script>
 const grid = document.getElementById('grid');
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
+const fmt = n => n.toLocaleString('vi-VN');
 
-function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function renderStats(games) {
+  const playable = games.filter(g => g.playable !== false).length;
+  const files = games.reduce((s, g) => s + (g.stats?.files || 0), 0);
+  const lines = games.reduce((s, g) => s + (g.stats?.lines || 0), 0);
+  const box = document.getElementById('stats');
+  for (const [v, label] of [[games.length, 'sản phẩm'], [playable, 'chơi được trên web'], [files, 'file Python'], [lines, 'dòng code đã viết']]) {
+    const s = el('div', 'stat'); s.append(el('b', '', fmt(v)), el('span', '', label)); box.append(s);
+  }
+}
 
 function render(games) {
   grid.innerHTML = '';
   for (const g of games) {
-    const url = `games/${g.id}/`;
+    const url = g.url || `games/${g.id}/`;
+    const playable = g.playable !== false;
     const card = el('article', 'card');
+
     const cover = el('div', 'cover', g.emoji || '🎮');
     cover.style.background = `linear-gradient(135deg, ${g.color || '#3b5bdb'}, #1a1d23)`;
+    cover.append(el('span', 'badge ' + (playable ? 'ok' : 'wip'), playable ? '✓ Chơi được' : (g.status || 'Đang hoàn thiện')));
+
     const body = el('div', 'body');
-    body.append(el('span', 'tag', g.tag || 'Game'), el('h2', '', g.title),
-                el('p', 'author', 'Tác giả: ' + g.author), el('p', 'desc', g.description || ''));
+    const meta = el('div', 'meta'); meta.append(el('span', 'tag', g.tag || 'Game'));
+    const author = el('p', 'author', 'Học sinh: '); author.append(el('b', '', g.author));
+    body.append(meta, el('h3', '', g.title), author, el('p', 'desc', g.description || ''));
+
+    if (g.stats && g.stats.lines) {
+      const nums = el('div', 'nums');
+      const a = el('span'); a.append(el('b', '', fmt(g.stats.files)), ' file');
+      const b = el('span'); b.append(el('b', '', fmt(g.stats.lines)), ' dòng code');
+      nums.append(a, b); body.append(nums);
+    }
+    if (g.features?.length) {
+      const ul = el('ul'); g.features.forEach(f => ul.append(el('li', '', f))); body.append(ul);
+    }
+    if (g.controls?.length) {
+      const d = el('details'); d.append(el('summary', '', 'Cách chơi'));
+      const k = el('div', 'keys');
+      g.controls.forEach(([key, what]) => k.append(el('kbd', '', key), el('span', '', what)));
+      d.append(k); body.append(d);
+    }
+
     const actions = el('div', 'actions');
-    const play = el('button', 'btn primary', '▶ Chơi');
-    play.onclick = () => openGame(g, url);
-    const tab = el('a', 'btn', 'Tab mới'); tab.href = url; tab.target = '_blank'; tab.rel = 'noopener';
-    actions.append(play, tab);
+    if (playable) {
+      const play = el('button', 'btn primary', '▶ Chơi thử');
+      play.onclick = () => openGame(g, url);
+      const tab = el('a', 'btn', 'Tab mới'); tab.href = url; tab.target = '_blank'; tab.rel = 'noopener';
+      actions.append(play, tab);
+    } else {
+      const wait = el('button', 'btn', 'Sắp có bản chơi thử'); wait.disabled = true; actions.append(wait);
+    }
     body.append(actions);
     card.append(cover, body);
     grid.append(card);
@@ -114,11 +234,12 @@ window.addEventListener('popstate', () => { if (!location.hash) closeGame(); });
 fetch('games/games.json', { cache: 'no-cache' })
   .then(r => r.json())
   .then(games => {
+    renderStats(games);
     render(games);
-    const g = games.find(x => '#' + x.id === location.hash);
-    if (g) openGame(g, `games/${g.id}/`);
+    const g = games.find(x => '#' + x.id === location.hash && x.playable !== false);
+    if (g) openGame(g, g.url || `games/${g.id}/`);
   })
-  .catch(() => { grid.innerHTML = '<p>Không tải được danh sách game (games/games.json). Hãy chạy qua web server, không mở file trực tiếp.</p>'; });
+  .catch(() => { grid.innerHTML = '<p>Không tải được danh sách game (games/games.json). Hãy mở trang qua web server (run_web_local.bat), không mở file trực tiếp.</p>'; });
 </script>
 </body>
 </html>

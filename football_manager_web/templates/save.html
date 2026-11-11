@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Lưu game{% endblock %}
+{% block container_class %}narrow{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>💾 Lưu game</h1>
+    <p class="muted">Đặt một mã bí mật (passcode). Lần sau dùng đúng mã này để tải lại CLB của bạn.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if success %}<div class="success">✅ Đã lưu game thành công! Hãy nhớ passcode của bạn.</div>{% endif %}
+    <form method="POST">
+        <div class="form-group">
+            <label for="passcode">Passcode:</label>
+            <input type="password" id="passcode" name="passcode" required placeholder="VD: doibongcuaem2026" autocomplete="off">
+        </div>
+        <button type="submit" class="btn primary block">💾 Lưu game</button>
+        <a href="{{ url_for('dashboard') }}" class="btn secondary block">← Quay lại</a>
+    </form>
+</div>
+{% endblock %}
