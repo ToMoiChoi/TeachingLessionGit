@@ -88,8 +88,8 @@ p = online.tai_tu_mang("cyberesc", ten)        # khi xong: p.ket_qua["found"], p
 
 ## Kiểm tra / lỗi thường gặp
 
-- **Bản web (sau khi đẩy lên):** mở `https://<trang-cua-lop>/api/online/`. Thấy `"ok": true` là API đang chạy.
-- **Chạy trên máy (`python main.py`):** sửa `URL_DESKTOP` trong `online.py` thành địa chỉ trang web của lớp.
+- **Bản web (sau khi đẩy lên):** mở https://teachinglesson.vercel.app/api/online/. Thấy `"ok": true` là API đang chạy.
+- **Chạy trên máy (`python main.py`):** `online.py` đã trỏ sẵn tới https://teachinglesson.vercel.app, không cần sửa.
 - **Chạy `run_web_local.bat` (127.0.0.1:8000):** trên máy không có API, nên lệnh online sẽ báo lỗi. Đây là bình thường; đẩy lên Vercel rồi thử.
 - Tên người chơi tối đa 20 ký tự; tên game chỉ gồm chữ thường, số, `-`, `_`.
 - Server chỉ giữ **điểm cao nhất** của mỗi người.

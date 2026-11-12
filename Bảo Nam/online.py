@@ -26,7 +26,7 @@ import urllib.parse
 
 # Bản web: game nằm cùng trang Vercel nên chỉ cần đường dẫn tương đối.
 # Bản desktop: cần địa chỉ đầy đủ của trang web lớp mình.
-URL_DESKTOP = "https://THAY-TEN-MIEN-CUA-LOP.vercel.app"
+URL_DESKTOP = "https://teachinglesson.vercel.app"
 DUONG_DAN_API = "/api/online/"
 THOI_GIAN_CHO = 10  # giây; quá thời gian này coi như lỗi
 
