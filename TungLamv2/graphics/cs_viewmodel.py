@@ -1,6 +1,7 @@
-import os
 import math
 import pygame
+
+from graphics import gun3d
 
 # ==============================================================================
 # HỆ THỐNG VIEWMODEL GÓC NHÌN THỨ NHẤT CHUẨN CS:GO / CS2
@@ -38,50 +39,6 @@ class CSViewModel:
         self.last_angle = 0.0
         self.last_time = 0.0
 
-        # Đường dẫn assets viewmodel FPS chuẩn CS:GO
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.assets_dir = os.path.join(base_dir, "assets")
-
-        # Cache sprites
-        self._sprite_cache = {}
-
-    def _load_fps_sprite(self, category):
-        """Tải sprite góc nhìn FPS CS:GO với kích thước scale chuẩn màn hình."""
-        if category in self._sprite_cache:
-            return self._sprite_cache[category]
-
-        filename = {
-            "RIFLE": "fps_rifle.png",
-            "PISTOL": "fps_pistol.png",
-            "KNIFE": "fps_knife.png",
-        }.get(category, "fps_rifle.png")
-
-        path = os.path.join(self.assets_dir, filename)
-        if not os.path.exists(path):
-            return None
-
-        try:
-            raw = pygame.image.load(path)
-            if pygame.display.get_surface() is not None:
-                raw = raw.convert_alpha()
-
-            rw, rh = raw.get_size()
-
-            # Tỉ lệ kích thước viewmodel tối ưu chuẩn CS:GO
-            if category == "RIFLE":
-                target_w = int(self.sw * 0.58)
-            elif category == "PISTOL":
-                target_w = int(self.sw * 0.38)
-            else:  # KNIFE
-                target_w = int(self.sw * 0.44)
-
-            target_h = max(1, int(rh * target_w / rw))
-            scaled = pygame.transform.smoothscale(raw, (target_w, target_h))
-            self._sprite_cache[category] = scaled
-            return scaled
-        except Exception as e:
-            print(f"[CSViewModel] Lỗi tải sprite {path}: {e}")
-            return None
 
     def update(self, dt, player):
         now = pygame.time.get_ticks() / 1000.0
@@ -126,128 +83,67 @@ class CSViewModel:
             return self._draw_gun_viewmodel(screen, player, cur_w, righthand, recoil, reload_drop, side_sway)
 
     # ==========================================================================
-    # 1. VIEWMODEL SÚNG (GÓC NHÌN THỨ NHẤT CHUẨN CS:GO NHÌN DỌC THÂN SÚNG)
+    # 1. VIEWMODEL SÚNG: VẼ 3D BẰNG HÌNH KHỐI (graphics/gun3d.py), KHÔNG DÙNG PNG
     # ==========================================================================
+
+    # Vị trí gốc súng (chỗ tay phải nắm) trong hệ camera: (phải, xuống, sâu) - đơn vị ~mét
+    POSE_RIFLE = ((0.25, 0.19, 0.62), -17.0, 3.0)    # (vị trí, góc quay ngang, góc ngóc lên)
+    POSE_PISTOL = ((0.17, 0.13, 0.42), -14.0, 3.0)
+    POSE_KNIFE = ((0.17, 0.16, 0.32), -28.0, 10.0)
+
+    def _px_to_m(self, px, depth):
+        """Đổi độ lệch tính bằng pixel (bob, sway, nạp đạn) sang mét ở độ sâu depth."""
+        f = (self.sw / 2) / math.tan(math.radians(34))
+        return px * depth / f
 
     def _draw_gun_viewmodel(self, screen, player, weapon_id, righthand, recoil, reload_drop, side_sway):
         is_pistol = weapon_id in self.PISTOLS
-        cat = "PISTOL" if is_pistol else "RIFLE"
-        sprite = self._load_fps_sprite(cat)
-        if sprite is None:
-            return self.muzzle_pos
+        (x, y, z), yaw, pitch = self.POSE_PISTOL if is_pistol else self.POSE_RIFLE
 
-        kick = min(1.0, recoil / 0.14)
-        recoil_kick_y = int(12.0 * kick)
-        recoil_kick_x = int(6.0 * kick)
+        kick = min(1.0, recoil / 0.14)               # 0..1 ngay sau phát bắn
+        reload_p = min(1.0, reload_drop / 110.0)     # 0..1 khi đang nạp đạn
 
-        # Hoạt ảnh nạp đạn (hạ súng xuống nhẹ)
-        cur_drop = reload_drop
+        x += self._px_to_m(self.bob_x + self.sway_x + side_sway, z)
+        y += self._px_to_m(self.bob_y + reload_drop * 0.6, z)
+        z -= 0.035 * kick                            # súng giật lùi về phía người chơi
+        pitch += 5.0 * kick                          # và nảy nòng lên
+        roll = -22.0 * reload_p                      # nghiêng súng khi nạp đạn
 
-        # Nếu cầm tay trái (cl_righthand 0): lật gương sprite sang bên trái
         if not righthand:
-            draw_img = pygame.transform.flip(sprite, True, False)
-        else:
-            draw_img = sprite
-
-        sw, sh = draw_img.get_size()
-        rect = draw_img.get_rect()
-
-        if righthand:
-            # ------------------------------------------------------------------
-            # TAY PHẢI (cl_righthand 1): Súng ở góc dưới bên phải, nòng chĩa vào tâm
-            # ------------------------------------------------------------------
-            if is_pistol:
-                # Súng lục: neo gần giữa-phải để nhìn dọc theo sống lưng
-                anchor_x = int(self.sw * 0.76 + self.bob_x + self.sway_x + side_sway + recoil_kick_x)
-                anchor_y = int(self.sh + 10 + self.bob_y + cur_drop + recoil_kick_y)
-                rect.bottomright = (anchor_x, anchor_y)
-                # Đầu nòng súng lục
-                self.muzzle_pos = (rect.left + int(sw * 0.35), rect.top + int(sh * 0.18))
-            else:
-                # Súng trường: nòng chĩa thẳng vào tâm ngắm
-                anchor_x = int(self.sw * 0.88 + self.bob_x + self.sway_x + side_sway + recoil_kick_x)
-                anchor_y = int(self.sh + 20 + self.bob_y + cur_drop + recoil_kick_y)
-                rect.bottomright = (anchor_x, anchor_y)
-                # Đầu nòng súng trường
-                self.muzzle_pos = (rect.left + int(sw * 0.14), rect.top + int(sh * 0.28))
-
-            screen.blit(draw_img, rect.topleft)
-
-        else:
-            # ------------------------------------------------------------------
-            # TAY TRÁI (cl_righthand 0): Súng ở góc dưới bên trái, nòng chĩa vào tâm
-            # ------------------------------------------------------------------
-            if is_pistol:
-                anchor_x = int(self.sw * 0.24 - self.bob_x - self.sway_x + side_sway - recoil_kick_x)
-                anchor_y = int(self.sh + 10 + self.bob_y + cur_drop + recoil_kick_y)
-                rect.bottomleft = (anchor_x, anchor_y)
-                self.muzzle_pos = (rect.right - int(sw * 0.35), rect.top + int(sh * 0.18))
-            else:
-                anchor_x = int(self.sw * 0.12 - self.bob_x - self.sway_x + side_sway - recoil_kick_x)
-                anchor_y = int(self.sh + 20 + self.bob_y + cur_drop + recoil_kick_y)
-                rect.bottomleft = (anchor_x, anchor_y)
-                self.muzzle_pos = (rect.right - int(sw * 0.14), rect.top + int(sh * 0.28))
-
-            screen.blit(draw_img, rect.topleft)
-
+            x = -x                                   # tay trái: lật gương sang bên trái
+        self.muzzle_pos = gun3d.render(
+            screen, weapon_id, (x, y, z), math.radians(yaw), math.radians(pitch),
+            math.radians(roll), mirror=not righthand)
         return self.muzzle_pos
 
     # ==========================================================================
-    # 2. VIEWMODEL DAO CẬN CHIẾN CHUẨN CS:GO
+    # 2. VIEWMODEL DAO CẬN CHIẾN (3D)
     # ==========================================================================
 
     def _draw_knife_viewmodel(self, screen, player, righthand):
-        sprite = self._load_fps_sprite("KNIFE")
-        if sprite is None:
-            return self.muzzle_pos
+        (x, y, z), yaw, pitch = self.POSE_KNIFE
+        roll = -20.0
 
         swing_timer = getattr(player, "knife_swing", 0.0)
         is_stab = getattr(player, "knife_is_stab", False)
         swing_total = 0.28
-
-        anim_off_x = 0
-        anim_off_y = 0
-        rot_angle = 0.0
-
         if swing_timer > 0:
-            prog = 1.0 - (swing_timer / swing_total)
-            if is_stab:
-                # Đâm dao (Right click): phóng mạnh mũi dao về phía trước
-                p = math.sin(prog * math.pi)
-                anim_off_x = -int(p * 70)
-                anim_off_y = -int(p * 85)
-            else:
-                # Chém dao (Left click): vung chém quét qua góc
-                p = math.sin(prog * math.pi)
-                rot_angle = -p * 22.0
-                anim_off_x = -int(p * 80)
-                anim_off_y = int(math.cos(prog * math.pi) * 30)
+            p = math.sin((1.0 - swing_timer / swing_total) * math.pi)   # 0 -> 1 -> 0
+            if is_stab:      # Chuột phải: đâm thẳng về phía trước
+                z += 0.12 * p
+                x -= 0.06 * p
+                pitch += 6 * p
+            else:            # Chuột trái: chém quét ngang
+                yaw += 40 * p
+                roll -= 35 * p
+                x -= 0.08 * p
+                y -= 0.03 * p
 
-        # Lật tay trái nếu cần
+        x += self._px_to_m(self.bob_x + self.sway_x, z)
+        y += self._px_to_m(self.bob_y, z)
         if not righthand:
-            draw_img = pygame.transform.flip(sprite, True, False)
-            rot_angle = -rot_angle
-            anim_off_x = -anim_off_x
-        else:
-            draw_img = sprite
-
-        if rot_angle != 0:
-            draw_img = pygame.transform.rotate(draw_img, rot_angle)
-
-        sw, sh = draw_img.get_size()
-        rect = draw_img.get_rect()
-
-        if righthand:
-            anchor_x = int(self.sw * 0.86 + self.bob_x + self.sway_x + anim_off_x)
-            anchor_y = int(self.sh + 15 + self.bob_y + anim_off_y)
-            rect.bottomright = (anchor_x, anchor_y)
-            screen.blit(draw_img, rect.topleft)
-            self.muzzle_pos = (rect.left + int(sw * 0.25), rect.top + int(sh * 0.25))
-        else:
-            anchor_x = int(self.sw * 0.14 - self.bob_x - self.sway_x + anim_off_x)
-            anchor_y = int(self.sh + 15 + self.bob_y + anim_off_y)
-            rect.bottomleft = (anchor_x, anchor_y)
-            screen.blit(draw_img, rect.topleft)
-            self.muzzle_pos = (rect.right - int(sw * 0.25), rect.top + int(sh * 0.25))
-
+            x = -x
+        self.muzzle_pos = gun3d.render(
+            screen, "KNIFE", (x, y, z), math.radians(yaw), math.radians(pitch),
+            math.radians(roll), mirror=not righthand)
         return self.muzzle_pos
