@@ -5,9 +5,20 @@
     "api/football/index.py": {
       "includeFiles": "football_manager_web/**",
       "maxDuration": 30
+    },
+    "api/online/index.py": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
+    {
+      "source": "/api/online",
+      "destination": "/api/online/"
+    },
+    {
+      "source": "/api/online/(.*)",
+      "destination": "/api/online/"
+    },
     {
       "source": "/football",
       "destination": "/api/football/"
