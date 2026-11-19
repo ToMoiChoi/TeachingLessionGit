@@ -89,6 +89,13 @@ class GameplayManager:
         self.level_completed = False
         self.clear_timer = 0
 
+        # THỐNG KÊ MÀN CHƠI + MÀN HÌNH "BẠN ĐÃ CHẾT"
+        self.level_kills = 0
+        self.level_frames = 0
+        self.level_coins_start = self.coins
+        self.death_timer = 0
+        self.death_stats = {}
+
         # Nạp động các module từ thư mục levels/ (levels.lv1 -> levels.lv8)
         self.level_modules = {}
         for lvl_id in range(1, 9):
@@ -202,6 +209,10 @@ class GameplayManager:
 
         self.level_completed = False
         self.player.rect.topleft = (100, 300)
+        self.level_kills = 0
+        self.level_frames = 0
+        self.level_coins_start = self.coins
+        self.death_timer = 0
 
         buffs = self.cosmetic_mgr.get_total_buffs()
         self.player.max_hp = 100 + (self.hp_lvl - 1) * 10 + buffs.get("hp", 0)
@@ -352,7 +363,58 @@ class GameplayManager:
             boss.hp -= damage
             self.particle_mgr.add_hit_particles(boss.rect.centerx, boss.rect.centery, CYBER_BLUE, 12)
 
+    # ==================================================================
+    # CHẾT / GAME OVER
+    # ==================================================================
+    GAMEOVER_INPUT_DELAY = 45          # khung hình chờ trước khi nhận phím (tránh bấm nhầm)
+    RETRY_RECT = pygame.Rect(215, 395, 170, 46)
+    MENU_RECT = pygame.Rect(415, 395, 170, 46)
+
+    def trigger_death(self):
+        """Người chơi hết máu: nổ tung, lưu tiến trình, chuyển sang màn hình BẠN ĐÃ CHẾT."""
+        cx, cy = self.player.rect.centerx, self.player.rect.centery
+        self.particle_mgr.add_death_explosion(cx, cy)
+        boss = self.boss_group.sprite
+        self.death_stats = {
+            "level": self.current_level,
+            "kills": self.level_kills,
+            "coins": max(0, self.coins - self.level_coins_start),
+            "seconds": self.level_frames // 60,
+            "boss_hp": (max(0, boss.hp), boss.max_hp) if boss else None,
+        }
+        self.dash_timer = 0
+        self.death_timer = 0
+        self.state = "GAME_OVER"
+        self.save_progress()
+        if self.ricochet_sound:
+            self.ricochet_sound.play()
+
+    def retry_level(self):
+        self.start_level(self.current_level)
+        self.state = "GAME"
+
+    def exit_to_menu(self):
+        self.start_level(self.current_level)
+        self.state = "MENU"
+
+    def handle_game_over_event(self, event):
+        if self.death_timer < self.GAMEOVER_INPUT_DELAY:
+            return
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_r, pygame.K_RETURN, pygame.K_SPACE):
+                self.retry_level()
+            elif event.key in (pygame.K_m, pygame.K_ESCAPE):
+                self.exit_to_menu()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.RETRY_RECT.collidepoint(event.pos):
+                self.retry_level()
+            elif self.MENU_RECT.collidepoint(event.pos):
+                self.exit_to_menu()
+
     def handle_event(self, event):
+        if self.state == "GAME_OVER":
+            self.handle_game_over_event(event)
+            return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.state in ["MENU", "LEVEL_SELECT", "SHOP"]:
                 self.state = self.menu.handle_click(event.pos, self.state, self)
@@ -396,8 +458,15 @@ class GameplayManager:
                 self.state = "MENU"
             return
 
+        if self.state == "GAME_OVER":
+            self.death_timer += 1
+            self.particle_mgr.update()
+            return
+
         if self.state != "GAME":
             return
+
+        self.level_frames += 1
 
         self.current_weapon.update()
         keys = pygame.key.get_pressed()
@@ -470,6 +539,7 @@ class GameplayManager:
                     enemy.update()
             if enemy.hp <= 0:
                 enemy.kill()
+                self.level_kills += 1
                 self.coins += int(15 * self.get_coin_multiplier())
 
         boss = self.boss_group.sprite
@@ -483,6 +553,7 @@ class GameplayManager:
                     boss.update()
             if boss.hp <= 0:
                 boss.kill()
+                self.level_kills += 1
                 self.coins += int(100 * self.get_coin_multiplier())
 
         hits = pygame.sprite.groupcollide(self.enemies, self.player_bullets, False, True)
@@ -529,8 +600,8 @@ class GameplayManager:
                 self.particle_mgr.add_hit_particles(self.player.rect.centerx, self.player.rect.centery, RED, 10)
 
         if self.player.hp <= 0:
-            self.start_level(self.current_level)
-            self.state = "MENU"
+            self.trigger_death()
+            return
 
         self.particle_mgr.update()
 

@@ -1,3 +1,5 @@
+import math
+import random
 import pygame
 from font_vn import get_font
 from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, GREEN, RED, WHITE
@@ -22,12 +24,12 @@ class LayoutRenderer:
         self.title_font = get_font(36, bold=True)
 
     def render(self, gameplay):
-        if gameplay.current_level == 8 and gameplay.state in ["GAME", "LEVEL_CLEAR"]:
+        if gameplay.current_level == 8 and gameplay.state in ["GAME", "LEVEL_CLEAR", "GAME_OVER"]:
             self.screen.fill((200, 10, 30))
         else:
             self.screen.fill(DARK_BG)
 
-        if gameplay.state in ["GAME", "LEVEL_CLEAR"]:
+        if gameplay.state in ["GAME", "LEVEL_CLEAR", "GAME_OVER"]:
             cam_x = gameplay.camera_x
 
             pygame.draw.rect(self.screen, (40, 40, 60), (-cam_x, 380, gameplay.level_width, 200))
@@ -82,13 +84,18 @@ class LayoutRenderer:
                 else:
                     pygame.draw.rect(self.screen, RED, ren_rect)
 
-            gameplay.player.draw(self.screen, cam_x)
+            if gameplay.state != "GAME_OVER":   # đã nổ tung thì không vẽ nhân vật
+                gameplay.player.draw(self.screen, cam_x)
 
             for pt in gameplay.particle_mgr.particles:
                 if isinstance(pt, dict):
                     px, py = int(pt['x'] - cam_x), int(pt['y'])
                     col = pt.get('color', WHITE)
                     sz = int(pt.get('size', 3))
+                elif isinstance(pt, (list, tuple)) and len(pt) >= 7:
+                    px, py = int(pt[0] - cam_x), int(pt[1])
+                    col = pt[6]
+                    sz = int(pt[4])
                 elif isinstance(pt, (list, tuple)):
                     px, py = int(pt[0] - cam_x), int(pt[1])
                     col = pt[2] if len(pt) > 2 and isinstance(pt[2], (tuple, list)) else WHITE
@@ -158,7 +165,98 @@ class LayoutRenderer:
                 sec_left = max(1, gameplay.clear_timer // 60 + 1)
                 time_txt = self.font.render(f"Tự động về Menu sau {sec_left}s...", True, CYBER_BLUE)
                 self.screen.blit(time_txt, (box_rect.centerx - time_txt.get_width() // 2, 250))
+            if gameplay.state == "GAME_OVER":
+                self.draw_game_over(gameplay)
         else:
             gameplay.menu.render(gameplay.state, gameplay)
 
         pygame.display.flip()
+
+    # ==================================================================
+    # MÀN HÌNH "BẠN ĐÃ CHẾT"
+    # ==================================================================
+    def draw_game_over(self, gameplay):
+        sw, sh = self.screen.get_size()
+        t = gameplay.death_timer
+        fade = min(1.0, t / 40.0)
+
+        # Lớp phủ đỏ sẫm mờ dần + vệt quét ngang kiểu màn hình hỏng
+        overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        overlay.fill((40, 0, 8, int(200 * fade)))
+        for y in range(0, sh, 4):
+            pygame.draw.line(overlay, (0, 0, 0, int(60 * fade)), (0, y), (sw, y))
+        self.screen.blit(overlay, (0, 0))
+
+        # Viền đỏ nhấp nháy quanh màn hình
+        pulse = 0.5 + 0.5 * math.sin(t * 0.15)
+        edge = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        for i in range(12):
+            a = int((90 - i * 7) * fade * (0.6 + 0.4 * pulse))
+            if a > 0:
+                pygame.draw.rect(edge, (255, 30, 50, a), (i, i, sw - 2 * i, sh - 2 * i), 1)
+        self.screen.blit(edge, (0, 0))
+
+        if t < 12:
+            return  # khoảnh khắc nổ: chỉ thấy màn hình đỏ dần
+
+        # Tiêu đề rơi xuống + hiệu ứng nhiễu (glitch) màu xanh/hồng
+        if not hasattr(self, "death_font"):
+            self.death_font = get_font(64, bold=True)
+            self.sub_font = get_font(20)
+        drop = max(0.0, 1.0 - (t - 12) / 20.0)
+        title_y = int(95 - 60 * drop * drop)
+        title = "BẠN ĐÃ CHẾT"
+        jitter = 6 if (t < 40 or random.random() < 0.06) else 0
+        cx = sw // 2
+        for color, ox in ((CYBER_BLUE, -3), (CYBER_PINK, 3)):
+            g = self.death_font.render(title, True, color)
+            dx = ox + (random.randint(-jitter, jitter) if jitter else 0)
+            self.screen.blit(g, (cx - g.get_width() // 2 + dx, title_y))
+        main = self.death_font.render(title, True, (255, 60, 70))
+        self.screen.blit(main, (cx - main.get_width() // 2, title_y))
+
+        sub = self.sub_font.render("Kết nối thần kinh bị cắt đứt... Hệ thống đang khởi động lại", True, (255, 170, 175))
+        self.screen.blit(sub, (cx - sub.get_width() // 2, title_y + 78))
+
+        if t < 30:
+            return
+
+        # Bảng thống kê
+        st = gameplay.death_stats
+        box = pygame.Rect(cx - 210, 215, 420, 160)
+        bg = pygame.Surface(box.size, pygame.SRCALPHA)
+        bg.fill((15, 10, 25, 220))
+        self.screen.blit(bg, box.topleft)
+        pygame.draw.rect(self.screen, (255, 60, 70), box, 2, border_radius=10)
+        mins, secs = divmod(st.get("seconds", 0), 60)
+        rows = [
+            ("Màn chơi", f"{st.get('level', 1)}", CYBER_BLUE),
+            ("Quái đã hạ", f"{st.get('kills', 0)}", GREEN),
+            ("Coins kiếm được", f"+{st.get('coins', 0)}", CYBER_YELLOW),
+            ("Thời gian sống", f"{mins:02d}:{secs:02d}", WHITE),
+        ]
+        if st.get("boss_hp"):
+            hp, mx = st["boss_hp"]
+            rows.append(("Boss còn lại", f"{int(100 * hp / max(1, mx))}% máu", CYBER_PINK))
+        row_h = (box.height - 20) // len(rows)
+        for i, (label, value, col) in enumerate(rows):
+            y = box.top + 10 + i * row_h
+            self.screen.blit(self.font.render(label, True, (200, 200, 215)), (box.left + 24, y))
+            v = self.font.render(value, True, col)
+            self.screen.blit(v, (box.right - 24 - v.get_width(), y))
+
+        # Nút bấm
+        ready = t >= gameplay.GAMEOVER_INPUT_DELAY
+        mouse = pygame.mouse.get_pos()
+        for rect, text, col in ((gameplay.RETRY_RECT, "[R] CHƠI LẠI", GREEN),
+                                (gameplay.MENU_RECT, "[M] VỀ MENU", CYBER_BLUE)):
+            hover = ready and rect.collidepoint(mouse)
+            fill = (col[0] // 4, col[1] // 4, col[2] // 4) if hover else (20, 20, 35)
+            pygame.draw.rect(self.screen, fill, rect, border_radius=8)
+            pygame.draw.rect(self.screen, col if ready else (90, 90, 100), rect, 2, border_radius=8)
+            lbl = self.font.render(text, True, col if ready else (110, 110, 120))
+            self.screen.blit(lbl, (rect.centerx - lbl.get_width() // 2, rect.centery - lbl.get_height() // 2))
+
+        if ready and (t // 30) % 2 == 0:
+            hint = self.sub_font.render("Nhấn R hoặc Enter để thử lại", True, (200, 200, 210))
+            self.screen.blit(hint, (cx - hint.get_width() // 2, 455))
