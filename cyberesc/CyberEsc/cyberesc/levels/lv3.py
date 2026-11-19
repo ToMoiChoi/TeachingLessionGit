@@ -1,5 +1,5 @@
 import random
-from CyberEsc.cyberesc.Enemy import FlyingEnemy, ShieldEnemy
+from Enemy import FlyingEnemy, ShieldEnemy
 
 def setup(enemies_group, boss_group, EnemyClass, BossClass, platforms_group, powerups_group, PlatformClass, PowerUpClass):
     platform_data = [

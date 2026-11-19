@@ -2,7 +2,7 @@ import pygame
 import math
 
 try:
-    from CyberEsc.cyberesc.Sounds import Sounds
+    from Sounds import Sounds
 except ImportError:
     class Sounds:
         @staticmethod
@@ -10,7 +10,7 @@ except ImportError:
             pass
 
 try:
-    from CyberEsc.cyberesc.weapon import WEAPON_LIST
+    from weapon import WEAPON_LIST
 except ImportError:
     WEAPON_LIST = {}
 

@@ -2,16 +2,16 @@ import math
 import random
 import pygame
 
-from CyberEsc.cyberesc.config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, GREEN, RED
-from CyberEsc.cyberesc.cosmetics import CosmeticManager
-from CyberEsc.cyberesc.Enemy import Boss, Enemy, FlyingEnemy, ShieldEnemy
-from CyberEsc.cyberesc.game_engine_layout import Platform
-from CyberEsc.cyberesc.menu import Menu
-from CyberEsc.cyberesc.particle import ParticleManager
-from CyberEsc.cyberesc.player import Player
-from CyberEsc.cyberesc.powerups import PowerUp
-from CyberEsc.cyberesc.weapon import WEAPON_LIST
-from CyberEsc.cyberesc.save_manager import load_game_data, save_game_data
+from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, GREEN, RED
+from cosmetics import CosmeticManager
+from Enemy import Boss, Enemy, FlyingEnemy, ShieldEnemy
+from game_engine_layout import Platform
+from menu import Menu
+from particle import ParticleManager
+from player import Player
+from powerups import PowerUp
+from weapon import WEAPON_LIST
+from save_manager import load_game_data, save_game_data
 
 ORANGE = (255, 140, 0)
 WHITE = (255, 255, 255)

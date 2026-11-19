@@ -6,7 +6,7 @@ _parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
-from CyberEsc.cyberesc.Enemy import FlyingEnemy
+from Enemy import FlyingEnemy
 
 
 def setup(enemies_group, boss_group, EnemyClass, BossClass, platforms_group, powerups_group, PlatformClass, PowerUpClass):
@@ -43,8 +43,8 @@ def setup(enemies_group, boss_group, EnemyClass, BossClass, platforms_group, pow
 # Cho phép chạy thử trực tiếp màn 1 độc lập
 if __name__ == '__main__':
     import pygame
-    from CyberEsc.cyberesc.game_engine import GameEngine
-    from CyberEsc.cyberesc.config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
+    from game_engine import GameEngine
+    from config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 
     pygame.init()
     pygame.font.init()

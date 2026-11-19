@@ -1,8 +1,8 @@
 class GameEngine:
     def __init__(self, screen):
         # Tránh lỗi Circular Import bằng cách import trực tiếp trong __init__
-        from CyberEsc.cyberesc.game_engine_gameplay import GameplayManager
-        from CyberEsc.cyberesc.game_engine_layout import LayoutRenderer
+        from game_engine_gameplay import GameplayManager
+        from game_engine_layout import LayoutRenderer
 
         self.gameplay = GameplayManager(screen)
         self.layout = LayoutRenderer(screen)

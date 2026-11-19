@@ -1,6 +1,6 @@
 # File: lv8.py
 import random
-from CyberEsc.cyberesc.Enemy import FlyingEnemy, ShieldEnemy
+from Enemy import FlyingEnemy, ShieldEnemy
 
 def setup(enemies, boss_group, Enemy, Boss, platforms, powerups, Platform, PowerUp):
     # 1. Tạo các nền tảng (Platforms)

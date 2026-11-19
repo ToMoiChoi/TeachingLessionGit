@@ -1,7 +1,7 @@
 import pygame
 import random
 import math
-from CyberEsc.cyberesc.config import CYBER_YELLOW, CYBER_PINK, CYBER_BLUE, ORANGE
+from config import CYBER_YELLOW, CYBER_PINK, CYBER_BLUE, ORANGE
 
 # --- BẢNG MÀU VÀ NGUYÊN MẪU MODEL VŨ KHÍ (PIXEL ART) ---
 COLOR_MAP = {

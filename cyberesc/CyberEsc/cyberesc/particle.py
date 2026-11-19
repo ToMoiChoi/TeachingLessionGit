@@ -1,6 +1,6 @@
 import random
 import pygame
-from CyberEsc.cyberesc.config import CYBER_BLUE
+from config import CYBER_BLUE
 
 class ParticleManager:
     def __init__(self):

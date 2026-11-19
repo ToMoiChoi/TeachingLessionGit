@@ -1,6 +1,6 @@
 import pygame
 import math
-from CyberEsc.cyberesc.config import CYBER_YELLOW, GREEN, CYBER_PINK, WHITE
+from config import CYBER_YELLOW, GREEN, CYBER_PINK, WHITE
 
 ORANGE = (255, 140, 0)
 

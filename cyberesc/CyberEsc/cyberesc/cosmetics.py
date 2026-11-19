@@ -1,10 +1,11 @@
 import pygame
-from CyberEsc.cyberesc.config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, WHITE, GREEN, RED
+from font_vn import get_font
+from config import CYBER_BLUE, CYBER_PINK, CYBER_YELLOW, DARK_BG, WHITE, GREEN, RED
 
 class CosmeticManager:
     def __init__(self):
-        self.font = pygame.font.SysFont("Arial", 16, bold=True)
-        self.title_font = pygame.font.SysFont("Arial", 18, bold=True)
+        self.font = get_font(16, bold=True)
+        self.title_font = get_font(18, bold=True)
         self.current_subtab = "HEAD"  # "HEAD" (Đội) hoặc "BODY" (Mặc)
 
         # Danh sách Vật phẩm Đội (Mũ, Visor, Vương miện, Hào quang)

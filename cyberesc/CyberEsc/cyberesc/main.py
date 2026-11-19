@@ -1,7 +1,8 @@
+import asyncio
 import pygame
 import sys
-from CyberEsc.cyberesc.config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
-from CyberEsc.cyberesc.game_engine import GameEngine
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
+from game_engine import GameEngine
 
 pygame.init()
 pygame.font.init()
@@ -11,15 +12,21 @@ pygame.display.set_caption("Cyber Escape")
 
 engine = GameEngine(screen)
 
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            # Gọi phương thức save_progress từ engine trước khi thoát
-            if hasattr(engine, 'save_progress'):
-                engine.save_progress()
-            pygame.quit()
-            sys.exit()
-        engine.handle_event(event)
 
-    engine.update_and_render()
-    engine.clock.tick(FPS)
+async def main():
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                # Gọi phương thức save_progress từ engine trước khi thoát
+                if hasattr(engine, 'save_progress'):
+                    engine.save_progress()
+                pygame.quit()
+                sys.exit()
+            engine.handle_event(event)
+
+        engine.update_and_render()
+        engine.clock.tick(FPS)
+        await asyncio.sleep(0)
+
+
+asyncio.run(main())
