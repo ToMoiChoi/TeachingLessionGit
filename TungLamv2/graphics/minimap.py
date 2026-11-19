@@ -3,7 +3,7 @@ import math
 
 from settings import MAP_W, MAP_H
 from settings import WALL, GREEN, RED, WHITE
-from game.map import line_blocked
+from game.map import line_blocked, check_smoke_blocks
 
 
 class Minimap:
@@ -111,6 +111,8 @@ class Minimap:
             if game_state == "BUY":
                 continue
             if line_blocked(player.x, player.y, enemy.x, enemy.y):
+                continue
+            if check_smoke_blocks(player.x, player.y, enemy.x, enemy.y, smokes):
                 continue
 
             ex = x0 + int(

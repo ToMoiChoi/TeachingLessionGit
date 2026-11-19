@@ -1,44 +1,615 @@
-{% extends "base.html" %}
-{% block title %}Bảng điều khiển{% endblock %}
-{% block content %}
-<h1>🏟️ {{ club.name }}</h1>
-<p class="muted">HLV {{ club.coach.name if club.coach else 'Chưa có' }} · Sơ đồ {{ club.formation }} ·
-    Chiến thuật {{ {'Tan cong': 'Tấn công', 'Phong thu': 'Phòng thủ'}.get(club.tactic, 'Cân bằng') }}</p>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng điều khiển - {{ club.name }}</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --accent: #38bdf8;
+            --danger: #ef4444;
+            --gold: #f59e0b;
+        }
 
-{% if season_complete %}
-<div class="alert success">🏁 Mùa giải đã kết thúc! <a href="{{ url_for('season_end') }}">Xem tổng kết mùa giải →</a></div>
-{% endif %}
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-<div class="stats mb-2">
-    <div class="stat"><b>{{ club.round }}/18</b><span>Vòng đã đấu</span></div>
-    <div class="stat"><b>{{ club.points }}</b><span>Điểm</span></div>
-    <div class="stat"><b>{{ club.position or '–' }}</b><span>Thứ hạng</span></div>
-    <div class="stat"><b>${{ "{:,}".format(club.money) }}</b><span>Ngân sách</span></div>
-    <div class="stat"><b>{{ club.players|length }}</b><span>Cầu thủ</span></div>
-</div>
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-<div class="actions mb-2">
-    {% if not season_complete %}
-    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Đá vòng {{ club.round + 1 }}</a>
-    {% else %}
-    <a class="btn gold" href="{{ url_for('season_end') }}">🏁 Tổng kết mùa giải</a>
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* ===== HEADER CLB ===== */
+        .club-header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .club-info h1 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        .club-info p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .club-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .stat-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-badge span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-badge strong {
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        /* ===== TRÌNH PHÁT NHẠC FIFA (SOUNDTRACK PLAYER) ===== */
+        .music-player-card {
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+            border: 1px solid #4338ca;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            box-shadow: 0 8px 20px rgba(67, 56, 202, 0.25);
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .music-disc {
+            font-size: 2rem;
+            animation: spin 6s linear infinite paused;
+        }
+
+        .music-disc.playing {
+            animation-play-state: running;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .track-details .title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #e0e7ff;
+        }
+
+        .track-details .status {
+            font-size: 0.8rem;
+            color: #a5b4fc;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-ctrl {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: 0.2s;
+        }
+
+        .btn-ctrl:hover {
+            background: #4f46e5;
+        }
+
+        .btn-ctrl.active {
+            background: #10b981;
+            border-color: #10b981;
+        }
+
+        .song-select {
+            background: #0f172a;
+            border: 1px solid #4338ca;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            max-width: 250px;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: #c7d2fe;
+        }
+
+        .volume-control input[type="range"] {
+            cursor: pointer;
+            accent-color: #6366f1;
+            width: 80px;
+        }
+
+        /* ===== THÔNG BÁO HẾT MÙA ===== */
+        .season-alert {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--gold);
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* ===== MENU CHÍNH (GRID NÚT BẤM) ===== */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .menu-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            text-decoration: none;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.15);
+        }
+
+        .menu-card.highlight {
+            background: linear-gradient(135deg, #065f46 0%, #1e293b 100%);
+            border-color: var(--primary);
+            grid-column: span 2;
+        }
+
+        @media (max-width: 768px) {
+            .menu-card.highlight { grid-column: span 1; }
+        }
+
+        .menu-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        .menu-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .menu-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        /* ===== NÚT FOOTER ===== */
+        .footer-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            border: none;
+        }
+
+        .btn.primary { background: var(--primary); color: #fff; }
+        .btn.primary:hover { background: var(--primary-hover); }
+
+        .btn.secondary { background: #334155; color: #fff; }
+        .btn.secondary:hover { background: #475569; }
+
+        .btn.danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .btn.danger:hover { background: var(--danger); color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- 1. HEADER CLB -->
+    <div class="club-header">
+        <div class="club-info">
+            <h1>🛡️ {{ club.name }}</h1>
+            <p>Giải đấu: <strong style="color:var(--gold);">{{ club.league }} (Mùa {{ club.season }})</strong> • Tài trợ: <strong style="color:var(--accent);">{{ club.sponsor_name or 'VietinBank Sport' }}</strong> • Sơ đồ: <strong>{{ club.formation }}</strong></p>
+        </div>
+        <div class="club-stats">
+            <div class="stat-badge">
+                <span>Vòng đấu</span>
+                <strong>{{ club.round }} / 18</strong>
+            </div>
+            <div class="stat-badge">
+                <span>Điểm số</span>
+                <strong>{{ club.points }} pts</strong>
+            </div>
+            <div class="stat-badge">
+                <span>Hạng hiện tại</span>
+                <strong>#{{ club.position or 1 }}</strong>
+            </div>
+            <div class="stat-badge">
+                <span>Ngân sách</span>
+                <strong style="color: #4ade80;">${{ "{:,}".format(club.money) }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. WIDGET TRÌNH PHÁT NHẠC FIFA (CHỌN NHẠC TRỰC TIẾP) -->
+    <div class="music-player-card">
+        <div class="player-info">
+            <div class="music-disc" id="musicDisc">💿</div>
+            <div class="track-details">
+                <div class="title" id="nowPlayingTitle">Đang phát: Love Me Again</div>
+                <div class="status" id="nowPlayingArtist">John Newman - FIFA Soundtrack</div>
+            </div>
+        </div>
+
+        <div class="player-controls">
+            <!-- Dropdown cho phép chọn bài hát theo ý muốn -->
+            <select class="song-select" id="songDropdown" title="Chọn bài hát">
+                <option value="0">John Newman - Love Me Again</option>
+                <option value="1">Glass Animals - Heat Waves</option>
+                <option value="2">Joy Crookes - Feet Don't Fail Me Now</option>
+            </select>
+
+            <button class="btn-ctrl" id="prevBtn" title="Bài trước">⏮️</button>
+            <button class="btn-ctrl" id="playPauseBtn" title="Phát/Tạm dừng">⏸️</button>
+            <button class="btn-ctrl" id="nextBtn" title="Bài tiếp theo">⏭️</button>
+            <button class="btn-ctrl" id="shuffleBtn" title="Phát ngẫu nhiên">🔀</button>
+
+            <!-- Thanh chỉnh âm lượng nhạc -->
+            <div class="volume-control">
+                <span>🔈</span>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.35" title="Âm lượng">
+                <span>🔊</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. THÔNG BÁO NẾU HẾT MÙA GIẢI -->
+    {% if season_complete %}
+    <div class="season-alert">
+        <div>
+            <h3 style="color: var(--gold); margin-bottom: 4px;">🏆 Mùa giải đã hoàn tất 18 vòng đấu!</h3>
+            <p style="font-size: 0.9rem; color: #cbd5e1;">Bấm vào nút bên cạnh để xem kết quả xếp hạng, nhận tiền thưởng hoặc thăng hạng.</p>
+        </div>
+        <a href="{{ url_for('season_end') }}" class="btn primary">🎉 Tổng kết mùa giải</a>
+    </div>
     {% endif %}
-    <a class="btn" href="{{ url_for('squad') }}">👕 Đội hình</a>
-    <a class="btn" href="{{ url_for('select_xi') }}">📌 Chọn 11 đá chính</a>
+
+    <!-- 4. LƯỚI TÍNH NĂNG CHÍNH -->
+    <div class="dashboard-grid">
+
+        <!-- Nút Vào Trận Đấu Nổi Bật -->
+        {% if not season_complete %}
+        <a href="{{ url_for('play_match') }}" class="menu-card highlight">
+            <div class="menu-icon">⚽</div>
+            <div class="menu-title">Vào Trận Đấu Kế Tiếp (Vòng {{ club.round + 1 }})</div>
+            <div class="menu-desc">Xem bảng chiến thuật, chỉ đạo trận đấu trực tiếp từng phút với âm thanh còi, khán đài sôi động.</div>
+        </a>
+        {% endif %}
+
+        <!-- Học viện đào tạo trẻ & Săn thần đồng -->
+        <a href="{{ url_for('youth_academy') }}" class="menu-card" style="border-color: rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, #1c1917 0%, #1e293b 100%);">
+            <div class="menu-icon">⭐</div>
+            <div class="menu-title" style="color:var(--gold);">Học Viện Trẻ & Săn Wonderkids</div>
+            <div class="menu-desc">Cử tuyển trạch viên săn thần đồng thế giới (La Masia, Nam Mỹ), bồi dưỡng và đôn lên Đội 1.</div>
+        </a>
+
+        <!-- Hợp đồng tài trợ -->
+        <a href="{{ url_for('sponsorship') }}" class="menu-card">
+            <div class="menu-icon">🤝</div>
+            <div class="menu-title">Hợp Đồng Tài Trợ</div>
+            <div class="menu-desc">Ký kết đối tác chiến lược (VietinBank, Emirates, Nike) nhận trợ cấp tuần và thưởng thắng trận.</div>
+        </a>
+
+        <!-- Phòng truyền thống -->
+        <a href="{{ url_for('trophy_room') }}" class="menu-card">
+            <div class="menu-icon">🏛️</div>
+            <div class="menu-title">Phòng Truyền Thống</div>
+            <div class="menu-desc">Trưng bày cúp V-League 2, Cúp Vô Địch Quốc Gia Hạng 1 và Cúp Bạc UEFA Champions League.</div>
+        </a>
+
+        <!-- Quản lý đội hình -->
+        <a href="{{ url_for('squad') }}" class="menu-card">
+            <div class="menu-icon">👥</div>
+            <div class="menu-title">Danh Sách Đội Hình</div>
+            <div class="menu-desc">Xem chi tiết chỉ số Công, Thủ, Tốc độ, Thể lực của các cầu thủ trong CLB.</div>
+        </a>
+
+        <!-- Chọn 11 đá chính -->
+        <a href="{{ url_for('select_xi') }}" class="menu-card">
+            <div class="menu-icon">📋</div>
+            <div class="menu-title">Chọn 11 Cầu Thủ Đá Chính</div>
+            <div class="menu-desc">Sắp xếp sơ đồ (4-3-3, 4-2-3-1, 5-3-2) hoặc dùng thuật toán tự chọn đội hình tối ưu.</div>
+        </a>
+
+        <!-- Chuyển nhượng -->
+        <a href="{{ url_for('transfer_market') }}" class="menu-card">
+            <div class="menu-icon">💼</div>
+            <div class="menu-title">Thị Trường Chuyển Nhượng</div>
+            <div class="menu-desc">Mua bán, đàm phán trả giá cầu thủ và nhận lời mời chuyển nhượng từ các CLB lớn.</div>
+        </a>
+
+        <!-- Huấn luyện -->
+        <a href="{{ url_for('training') }}" class="menu-card">
+            <div class="menu-icon">🏋️</div>
+            <div class="menu-title">Trung Tâm Huấn Luyện</div>
+            <div class="menu-desc">Tập trung nâng cao chỉ số Tấn công, Phòng thủ hoặc Tốc độ cho cầu thủ đội 1.</div>
+        </a>
+
+        <!-- Bảng xếp hạng -->
+        <a href="{{ url_for('standings') }}" class="menu-card">
+            <div class="menu-icon">📊</div>
+            <div class="menu-title">Bảng Xếp Hạng Giải Đấu</div>
+            <div class="menu-desc">Theo dõi thứ hạng, điểm số, hiệu số bàn thắng bại và cuộc đua vô địch.</div>
+        </a>
+
+        <!-- Lịch thi đấu -->
+        <a href="{{ url_for('schedule') }}" class="menu-card">
+            <div class="menu-icon">📅</div>
+            <div class="menu-title">Lịch Thi Đấu Toàn Mùa</div>
+            <div class="menu-desc">Xem danh sách các đối thủ sân nhà / sân khách trong 18 vòng đấu.</div>
+        </a>
+
+        <!-- Lịch sử trận đấu -->
+        <a href="{{ url_for('match_history') }}" class="menu-card">
+            <div class="menu-icon">🗂️</div>
+            <div class="menu-title">Lịch Sử Trận Đấu</div>
+            <div class="menu-desc">Xem lại tỉ số, người ghi bàn và diễn biến chi tiết của các trận đã qua.</div>
+        </a>
+
+        <!-- Thống kê vua phá lưới -->
+        <a href="{{ url_for('player_stats') }}" class="menu-card">
+            <div class="menu-icon">🥇</div>
+            <div class="menu-title">Thống Kê Vua Phá Lưới</div>
+            <div class="menu-desc">Xếp hạng các chân sút hàng đầu và số lần ra sân của cầu thủ trong đội.</div>
+        </a>
+
+        <!-- Quản lý lương -->
+        <a href="{{ url_for('salary') }}" class="menu-card">
+            <div class="menu-icon">💰</div>
+            <div class="menu-title">Quỹ Lương & Tài Chính</div>
+            <div class="menu-desc">Theo dõi chi tiết mức lương từng cầu thủ để không bị thâm hụt ngân sách.</div>
+        </a>
+
+    </div>
+
+    <!-- 5. THANH ĐIỀU HƯỚNG DƯỚI CÙNG -->
+    <div class="footer-bar">
+        <a href="{{ url_for('save') }}" class="btn secondary">💾 Lưu Trò Chơi</a>
+        <a href="{{ url_for('tutorial') }}" class="btn secondary">📖 Hướng Dẫn</a>
+        <a href="{{ url_for('logout') }}" class="btn danger">🚪 Thoát Game</a>
+    </div>
+
 </div>
 
-<div class="grid">
-    <a class="tile" href="{{ url_for('squad') }}"><div class="ic">👕</div><h3>Đội hình</h3><p>Sân bóng, đổi vị trí, đổi sơ đồ, xem chỉ số.</p></a>
-    <a class="tile" href="{{ url_for('standings') }}"><div class="ic">🏆</div><h3>Bảng xếp hạng</h3><p>Vị trí của CLB trong giải.</p></a>
-    <a class="tile" href="{{ url_for('schedule') }}"><div class="ic">📅</div><h3>Lịch thi đấu</h3><p>18 vòng đấu của mùa giải.</p></a>
-    <a class="tile" href="{{ url_for('training') }}"><div class="ic">🏋️</div><h3>Tập luyện</h3><p>Nâng chỉ số cầu thủ.</p></a>
-    <a class="tile" href="{{ url_for('transfer_market') }}"><div class="ic">💱</div><h3>Chuyển nhượng</h3><p>Mua, bán, nhận đề nghị.</p></a>
-    <a class="tile" href="{{ url_for('youth_academy') }}"><div class="ic">🌱</div><h3>Lò đào tạo trẻ</h3><p>Tuyển trạch và phát triển tài năng.</p></a>
-    <a class="tile" href="{{ url_for('sponsorship') }}"><div class="ic">🤝</div><h3>Tài trợ</h3><p>Hợp đồng: {{ club.sponsor_name }}</p></a>
-    <a class="tile" href="{{ url_for('player_stats') }}"><div class="ic">📊</div><h3>Thống kê cầu thủ</h3><p>Bàn thắng, kiến tạo, thẻ phạt.</p></a>
-    <a class="tile" href="{{ url_for('match_history') }}"><div class="ic">📜</div><h3>Lịch sử trận đấu</h3><p>Kết quả các trận đã đá.</p></a>
-    <a class="tile" href="{{ url_for('trophy_room') }}"><div class="ic">🏅</div><h3>Phòng danh hiệu</h3><p>Các chức vô địch đã giành.</p></a>
-    <a class="tile" href="{{ url_for('salary') }}"><div class="ic">💵</div><h3>Quỹ lương</h3><p>Lương và giá trị cầu thủ.</p></a>
-    <a class="tile" href="{{ url_for('save') }}"><div class="ic">💾</div><h3>Lưu game</h3><p>Lưu bằng mã bí mật.</p></a>
-</div>
-{% endblock %}
+<!-- ===== SCRIPT HỆ THỐNG ÂM THANH & BỘ PHÁT NHẠC FIFA ===== -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // 1. PHÁT TIẾNG CLICK KHI BẤM NÚT
+    const clickSfx = new Audio('/sounds/sfx/Click.wav');
+    clickSfx.volume = 0.5;
+
+    document.querySelectorAll('a, button, select, input[type="range"]').forEach(element => {
+        element.addEventListener('click', () => {
+            clickSfx.currentTime = 0;
+            clickSfx.play().catch(() => {});
+        });
+    });
+
+    // 2. DANH SÁCH BÀI HÁT FIFA
+    const tracks = [
+        {
+            title: "Love Me Again",
+            artist: "John Newman - FIFA Soundtrack",
+            file: "/sounds/bgm/John Newman - Love Me Again.mp3"
+        },
+        {
+            title: "Heat Waves",
+            artist: "Glass Animals - FIFA Soundtrack",
+            file: "/sounds/bgm/Glass Animals - Heat Waves (Official Video).mp3"
+        },
+        {
+            title: "Feet Don't Fail Me Now",
+            artist: "Joy Crookes - FIFA Soundtrack",
+            file: "/sounds/bgm/Joy Crookes - Feet Don t Fail Me Now (Official Video).mp3"
+        }
+    ];
+
+    let currentTrackIndex = 0;
+    let isShuffle = false;
+    const bgmAudio = new Audio();
+    bgmAudio.volume = parseFloat(document.getElementById('volumeSlider').value);
+
+    const musicDisc = document.getElementById('musicDisc');
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+    const nowPlayingArtist = document.getElementById('nowPlayingArtist');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const songDropdown = document.getElementById('songDropdown');
+    const volumeSlider = document.getElementById('volumeSlider');
+
+    // Nạp bài hát
+    function loadTrack(index, autoPlay = true) {
+        currentTrackIndex = index;
+        const track = tracks[currentTrackIndex];
+        bgmAudio.src = track.file;
+        nowPlayingTitle.textContent = `Đang phát: ${track.title}`;
+        nowPlayingArtist.textContent = track.artist;
+        songDropdown.value = currentTrackIndex;
+
+        if (autoPlay) {
+            bgmAudio.play().then(() => {
+                playPauseBtn.textContent = '⏸️';
+                musicDisc.classList.add('playing');
+            }).catch(() => {
+                // Trình duyệt chặn autoplay khi chưa có tương tác
+                playPauseBtn.textContent = '▶️';
+                musicDisc.classList.remove('playing');
+            });
+        }
+    }
+
+    // Chọn bài tiếp theo (có tính đến Shuffle)
+    function nextTrack() {
+        if (isShuffle) {
+            let nextIndex;
+            do {
+                nextIndex = Math.floor(Math.random() * tracks.length);
+            } while (nextIndex === currentTrackIndex && tracks.length > 1);
+            currentTrackIndex = nextIndex;
+        } else {
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+        }
+        loadTrack(currentTrackIndex, true);
+    }
+
+    // Chọn bài trước đó
+    function prevTrack() {
+        currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+        loadTrack(currentTrackIndex, true);
+    }
+
+    // Bật / Tắt Phát nhạc
+    playPauseBtn.addEventListener('click', () => {
+        if (bgmAudio.paused) {
+            bgmAudio.play().then(() => {
+                playPauseBtn.textContent = '⏸️';
+                musicDisc.classList.add('playing');
+            }).catch(() => {});
+        } else {
+            bgmAudio.pause();
+            playPauseBtn.textContent = '▶️';
+            musicDisc.classList.remove('playing');
+        }
+    });
+
+    nextBtn.addEventListener('click', nextTrack);
+    prevBtn.addEventListener('click', prevTrack);
+
+    // Chế độ Ngẫu Nhiên (Shuffle)
+    shuffleBtn.addEventListener('click', () => {
+        isShuffle = !isShuffle;
+        shuffleBtn.classList.toggle('active', isShuffle);
+        shuffleBtn.title = isShuffle ? "Ngẫu nhiên: ĐANG BẬT" : "Ngẫu nhiên: ĐANG TẮT";
+    });
+
+    // Khi người dùng chọn trực tiếp từ Dropdown
+    songDropdown.addEventListener('change', (e) => {
+        const selectedIndex = parseInt(e.target.value);
+        loadTrack(selectedIndex, true);
+    });
+
+    // Điều chỉnh âm lượng
+    volumeSlider.addEventListener('input', (e) => {
+        bgmAudio.volume = parseFloat(e.target.value);
+    });
+
+    // Tự động chuyển bài khi hết bài
+    bgmAudio.addEventListener('ended', nextTrack);
+
+    // Khởi tạo bài hát đầu tiên
+    loadTrack(0, false);
+
+    // Tự động phát khi người dùng click chuột lần đầu vào bất kỳ đâu trên trang
+    document.addEventListener('click', () => {
+        if (bgmAudio.paused && playPauseBtn.textContent === '▶️') {
+            bgmAudio.play().then(() => {
+                playPauseBtn.textContent = '⏸️';
+                musicDisc.classList.add('playing');
+            }).catch(() => {});
+        }
+    }, { once: true });
+
+});
+</script>
+
+</body>
+</html>

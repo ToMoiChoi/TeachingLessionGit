@@ -1,7 +1,6 @@
 import pygame
 import math
-import sys
-from bisect import bisect_left, bisect_right
+import random
 
 from settings import (
     WIDTH,
@@ -10,637 +9,404 @@ from settings import (
     MAP_W,
     MAP_H
 )
+from game.map import site_A, site_B, site_C
 
 
 class Renderer:
+    """
+    Hệ thống đồ họa 3D chuẩn xác (True 3D Analytical Engine):
+    - Đồ họa không gian 3 chiều với phối cảnh góc nhìn thực tế (True 3D Perspective)
+    - Phóng tia giao điểm chính xác từng pixel (Analytical Slab / Segment Raycaster - không bậc thang, không răng cưa)
+    - Sàn nhà 3D có lưới phối cảnh (3D Perspective Grid Floor) tụ về đường chân trời
+    - Bầu trời / Không gian đêm 3D có các chòm sao xoay theo góc nhìn chuột
+    - Bề mặt tường 3D có gờ cột, chân tường gia cố, phào trần và vạch phản quang neon sci-fi
+    - Ánh sáng định hướng 4 chiều (Directional Lighting 4 hướng: Bắc, Nam, Đông, Tây)
+    - Cột mốc 3D Hologram phát sáng định vị các khu vực bom Site A, Site B, Site C
+    - Bộ đệm độ sâu Z-Buffer chuẩn xác giúp các đối tượng 3D (kẻ địch Roblox, súng rơi, bom) không bị lỗi xuyên tường
+    """
 
     def __init__(self):
-
-        # ==========================================
-        # RAYCAST SETTINGS
-        # ==========================================
-
+        # Thiết lập góc nhìn và mặt phẳng chiếu
+        self.num_rays = 400
+        self.ray_width = WIDTH / self.num_rays
         self.fov = math.radians(FOV)
+        self.projection_plane = (WIDTH / 2.0) / math.tan(self.fov / 2.0)
 
-        self.projection_plane = (
-            WIDTH / 2
-        ) / math.tan(
-            self.fov / 2
-        )
-
-        # Nền trời/sàn đơn giản (1 màu) cho máy yếu
-        self.simple_background = False
-
-        # Trên web (pygbag) Python chậm hơn nhiều -> dùng ít tia hơn
-        self.set_rays(160 if sys.platform == "emscripten" else 240)
-
-        # ==========================================
-        # CAMERA
-        # ==========================================
-
-        self.eye_height = 90
-
-        self.crouch_height = 50
-
+        # Thông số camera
+        self.eye_height = 90.0
+        self.crouch_height = 50.0
         self.jump_camera_scale = 0.35
-
-        # Camera pitch strength
         self.pitch_strength = 0.45
-
-        # Giới hạn camera
         self.max_pitch = 0.75
 
-    def set_rays(
-        self,
-        num_rays
-    ):
+        # Cache các đoạn thẳng tường để tính giao điểm siêu tốc 120 FPS
+        self._cached_walls = None
+        self._h_north = []
+        self._h_south = []
+        self._v_west = []
+        self._v_east = []
 
-        # Ít tia hơn = cột tường to hơn, hình thô hơn nhưng nhẹ máy hơn
-        self.num_rays = num_rays
+        # Z-Buffer lưu độ sâu thực của từng cột raycast
+        self.z_buffer = [9999.0] * self.num_rays
 
-        # Tính sẵn góc lệch + hệ số chống mắt cá cho từng tia (không đổi giữa các frame)
-        tan_half = math.tan(self.fov / 2)
-        self.ray_offsets = [
-            math.atan(((i / num_rays) - 0.5) * 2 * tan_half)
-            for i in range(num_rays)
-        ]
-        self.ray_cos = [math.cos(a) for a in self.ray_offsets]
+        # Font chữ hiển thị Hologram 3D Site
+        self._font_beacon = None
 
-        # Vị trí cột tường trên màn hình. SDL tô hình chữ nhật rộng >= 16px
-        # chậm bất thường (cột 20px chậm hơn ~15 lần cột 14px) nên chia cột
-        # rộng thành các mảnh <= 15px - hình vẽ ra y hệt.
-        ray_width = WIDTH / num_rays
-        self.col_pieces = []
-        for i in range(num_rays):
-            x = int(i * ray_width)
-            w = int(ray_width + 1)
-            pieces = []
-            while w > 0:
-                pw = min(15, w)
-                pieces.append((x, pw))
-                x += pw
-                w -= pw
-            self.col_pieces.append(pieces)
+        # Cache sao trên bầu trời 3D
+        self._stars = []
+        rng = random.Random(1337)
+        for _ in range(80):
+            # Tọa độ góc theo vòng tròn 360 độ (0 -> 2pi) và độ cao y
+            star_ang = rng.uniform(0.0, math.tau)
+            star_y = rng.uniform(0.05, 0.45)
+            star_sz = rng.choice([1, 1, 2])
+            star_col = rng.choice([
+                (190, 215, 255),
+                (230, 240, 255),
+                (160, 190, 240),
+                (255, 230, 180)
+            ])
+            self._stars.append((star_ang, star_y, star_sz, star_col))
 
-    # =====================================================
-    # RAYCAST
-    # =====================================================
+    def _prepare_walls(self, walls):
+        """Tiền xử lý và phân loại các mặt tường để tối ưu hóa culling."""
+        if self._cached_walls is walls:
+            return
+        self._cached_walls = walls
+        self._h_north.clear()
+        self._h_south.clear()
+        self._v_west.clear()
+        self._v_east.clear()
 
-    def raycast(
-        self,
-        player,
-        angle,
-        walls
-    ):
+        for w in walls:
+            self._h_north.append((float(w.top), float(w.left), float(w.right)))
+            self._h_south.append((float(w.bottom), float(w.left), float(w.right)))
+            self._v_west.append((float(w.left), float(w.top), float(w.bottom)))
+            self._v_east.append((float(w.right), float(w.top), float(w.bottom)))
 
-        # Tính thẳng giao điểm tia với từng hình chữ nhật (slab method)
-        # thay vì nhích từng 20px rồi dò mọi bức tường -> nhanh hơn ~40 lần,
-        # rất quan trọng khi chạy trên web (pygbag chậm hơn desktop nhiều).
-
+    def raycast(self, player, angle, walls):
+        """Tính toán khoảng cách giao điểm chính xác tuyệt đối từ người chơi đến tường."""
+        self._prepare_walls(walls)
+        px, py = player.x, player.y
         dx = math.cos(angle)
         dy = math.sin(angle)
 
-        px = player.x
-        py = player.y
+        closest_t = 2500.0
 
-        # Cạnh các bức tường dạng tuple, tính 1 lần (đọc tuple nhanh hơn
-        # đọc wall.left/right/... của Rect hàng nghìn lần mỗi frame)
-        key = (id(walls), len(walls))
-        if getattr(self, "_wall_key", None) != key:
-            self._wall_key = key
-            self._wall_edges = [(w.left, w.right, w.top, w.bottom) for w in walls]
+        if dy > 1e-6:
+            inv_dy = 1.0 / dy
+            for y, x1, x2 in self._h_north:
+                t = (y - py) * inv_dy
+                if 0.1 < t < closest_t:
+                    x = px + t * dx
+                    if x1 <= x <= x2:
+                        closest_t = t
+        elif dy < -1e-6:
+            inv_dy = 1.0 / dy
+            for y, x1, x2 in self._h_south:
+                t = (y - py) * inv_dy
+                if 0.1 < t < closest_t:
+                    x = px + t * dx
+                    if x1 <= x <= x2:
+                        closest_t = t
 
-        best = MAP_W if MAP_W > MAP_H else MAP_H
+        if dx > 1e-6:
+            inv_dx = 1.0 / dx
+            for x, y1, y2 in self._v_west:
+                t = (x - px) * inv_dx
+                if 0.1 < t < closest_t:
+                    y = py + t * dy
+                    if y1 <= y <= y2:
+                        closest_t = t
+        elif dx < -1e-6:
+            inv_dx = 1.0 / dx
+            for x, y1, y2 in self._v_east:
+                t = (x - px) * inv_dx
+                if 0.1 < t < closest_t:
+                    y = py + t * dy
+                    if y1 <= y <= y2:
+                        closest_t = t
 
-        if abs(dx) > 1e-9 and abs(dy) > 1e-9:
-            ix = 1.0 / dx
-            iy = 1.0 / dy
-            for left, right, top, bottom in self._wall_edges:
-                t1 = (left - px) * ix
-                t2 = (right - px) * ix
-                if t1 > t2:
-                    t1, t2 = t2, t1
-                t3 = (top - py) * iy
-                t4 = (bottom - py) * iy
-                if t3 > t4:
-                    t3, t4 = t4, t3
-                t_enter = t1 if t1 > t3 else t3
-                t_exit = t2 if t2 < t4 else t4
-                if t_exit < 0 or t_enter > t_exit:
-                    continue
-                if t_enter < 0:
-                    t_enter = 0
-                if t_enter < best:
-                    best = t_enter
-            return best
+        return closest_t
 
-        # Tia song song trục X hoặc Y (hiếm gặp)
-        for left, right, top, bottom in self._wall_edges:
-            if abs(dx) > 1e-9:
-                if py < top or py >= bottom:
-                    continue
-                t1 = (left - px) / dx
-                t2 = (right - px) / dx
-            else:
-                if px < left or px >= right:
-                    continue
-                t1 = (top - py) / dy
-                t2 = (bottom - py) / dy
-            if t1 > t2:
-                t1, t2 = t2, t1
-            if t2 < 0:
-                continue
-            hit = t1 if t1 > 0 else 0
-            if hit < best:
-                best = hit
-        return best
-
-    # =====================================================
-    # RAYCAST TẤT CẢ CÁC TIA (nhanh)
-    # =====================================================
-
-    def cast_all(
-        self,
-        player,
-        walls
-    ):
-
-        # Thay vì mỗi tia thử MỌI bức tường: mỗi frame tính 1 lần xem tường
-        # nào nằm trong góc nhìn của tia nào, xếp tường gần -> xa, rồi mỗi tia
-        # chỉ thử các tường của nó và dừng ngay khi tường kế tiếp đã xa hơn
-        # điểm chạm hiện tại. Kết quả giống hệt raycast() nhưng nhanh hơn nhiều.
-
-        key = (id(walls), len(walls))
-        if getattr(self, "_wall_key", None) != key:
-            self._wall_key = key
-            self._wall_edges = [(w.left, w.right, w.top, w.bottom) for w in walls]
-
-        px = player.x
-        py = player.y
-        pa = player.angle
-        offs = self.ray_offsets
-        n = self.num_rays
-        lo_lim = offs[0]
-        hi_lim = offs[-1]
-        two_pi = 2 * math.pi
-        atan2 = math.atan2
-
-        # Khoảng cách gần nhất từ người chơi tới từng tường, sắp xếp gần -> xa
-        cand = []
-        for left, right, top, bottom in self._wall_edges:
-            cx = left if px < left else (right if px > right else px)
-            cy = top if py < top else (bottom if py > bottom else py)
-            cand.append((math.hypot(px - cx, py - cy), left, right, top, bottom))
-        cand.sort()
-
-        buckets = [[] for _ in range(n)]
-        for wall in cand:
-            d, left, right, top, bottom = wall
-            if d < 1:
-                # Đứng sát/chạm tường: cho tường này vào mọi tia
-                for b in buckets:
-                    b.append(wall)
-                continue
-            angs = [
-                (atan2(y - py, x - px) - pa + math.pi) % two_pi - math.pi
-                for x, y in ((left, top), (right, top), (left, bottom), (right, bottom))
-            ]
-            amin = min(angs)
-            amax = max(angs)
-            if amax - amin > math.pi:
-                # Tường vắt qua phía sau lưng (góc ±180°): dồn về khoảng
-                # [0, 2π) rồi xét cả phần lùi 2π - phần đó có thể vẫn ở trước mặt
-                angs = [a + two_pi if a < 0 else a for a in angs]
-                amin = min(angs)
-                amax = max(angs)
-                spans = ((amin, amax), (amin - two_pi, amax - two_pi))
-            else:
-                spans = ((amin, amax),)
-            # (2 khoảng cách nhau 2π nên tối đa 1 khoảng nằm trong góc nhìn 90°)
-            for lo, hi in spans:
-                if hi < lo_lim or lo > hi_lim:
-                    continue  # ngoài góc nhìn
-                i0 = max(0, bisect_left(offs, lo) - 1)
-                i1 = min(n, bisect_right(offs, hi) + 1)
-                for i in range(i0, i1):
-                    buckets[i].append(wall)
-
-        far = MAP_W if MAP_W > MAP_H else MAP_H
-        cos = math.cos
-        sin = math.sin
-        dists = [far] * n
-
-        for i in range(n):
-            angle = pa + offs[i]
-            dx = cos(angle)
-            dy = sin(angle)
-            if abs(dx) <= 1e-9 or abs(dy) <= 1e-9:
-                dists[i] = self.raycast(player, angle, walls)
-                continue
-            ix = 1.0 / dx
-            iy = 1.0 / dy
-            best = far
-            for d, left, right, top, bottom in buckets[i]:
-                if d >= best:
-                    break
-                t1 = (left - px) * ix
-                t2 = (right - px) * ix
-                if t1 > t2:
-                    t1, t2 = t2, t1
-                t3 = (top - py) * iy
-                t4 = (bottom - py) * iy
-                if t3 > t4:
-                    t3, t4 = t4, t3
-                t_enter = t1 if t1 > t3 else t3
-                t_exit = t2 if t2 < t4 else t4
-                if t_exit < 0 or t_enter > t_exit:
-                    continue
-                if t_enter < 0:
-                    t_enter = 0
-                if t_enter < best:
-                    best = t_enter
-            dists[i] = best
-
-        return dists
-
-    # =====================================================
-    # CAMERA HEIGHT
-    # =====================================================
-
-    def get_camera_offset(
-        self,
-        player
-    ):
-
-        # ==========================================
-        # CROUCH
-        # ==========================================
-
-        if getattr(
-            player,
-            "crouching",
-            False
-        ):
-
-            crouch_offset = (
-                self.crouch_height
-                -
-                self.eye_height
-            )
-
+    def get_camera_offset(self, player):
+        """Tính toán độ cao camera khi ngồi hoặc nhảy."""
+        if getattr(player, "crouching", False):
+            crouch_offset = self.crouch_height - self.eye_height
         else:
+            crouch_offset = 0.0
 
-            crouch_offset = 0
+        jump_offset = getattr(player, "vertical_offset", 0.0) * self.jump_camera_scale
+        return crouch_offset + jump_offset
 
-        # ==========================================
-        # JUMP
-        # ==========================================
+    def get_pitch(self, player):
+        """Lấy góc nghiêng lên / xuống (Pitch)."""
+        pitch = getattr(player, "pitch", 0.0)
+        return max(-self.max_pitch, min(self.max_pitch, pitch))
 
-        jump_offset = (
-            getattr(
-                player,
-                "vertical_offset",
-                0
-            )
-            *
-            self.jump_camera_scale
-        )
+    def get_horizon(self, player):
+        """Tính toán vị trí đường chân trời 3D trên màn hình."""
+        pitch = self.get_pitch(player)
+        pitch_offset = math.tan(pitch) * self.projection_plane * self.pitch_strength
+        camera_height_offset = self.get_camera_offset(player)
 
-        return (
-            crouch_offset
-            +
-            jump_offset
-        )
+        horizon = HEIGHT // 2 + pitch_offset + camera_height_offset
+        return int(max(-HEIGHT, min(HEIGHT * 2, horizon)))
 
-    # =====================================================
-    # CAMERA PITCH
-    # =====================================================
-
-    def get_pitch(
-        self,
-        player
-    ):
-
-        pitch = getattr(
-            player,
-            "pitch",
-            0.0
-        )
-
-        # Giới hạn pitch
-        pitch = max(
-            -self.max_pitch,
-            min(
-                self.max_pitch,
-                pitch
-            )
-        )
-
-        return pitch
-
-    # =====================================================
-    # HORIZON
-    # =====================================================
-
-    def get_horizon(
-        self,
-        player
-    ):
-
-        # ==========================================
-        # PITCH
-        # ==========================================
-
-        pitch = self.get_pitch(
-            player
-        )
-
-        # ==========================================
-        # PITCH -> PIXEL
-        # ==========================================
-
-        pitch_offset = (
-            math.tan(pitch)
-            *
-            self.projection_plane
-            *
-            self.pitch_strength
-        )
-
-        # ==========================================
-        # CROUCH / JUMP
-        # ==========================================
-
-        camera_height_offset = (
-            self.get_camera_offset(
-                player
-            )
-        )
-
-        # ==========================================
-        # HORIZON
-        # ==========================================
-
-        horizon = (
-            HEIGHT // 2
-            +
-            pitch_offset
-            +
-            camera_height_offset
-        )
-
-        # ==========================================
-        # LIMIT
-        # ==========================================
-
-        horizon = max(
-            -HEIGHT,
-            min(
-                HEIGHT * 2,
-                horizon
-            )
-        )
-
-        return int(horizon)
-
-    # =====================================================
-    # WORLD TO SCREEN X
-    # =====================================================
-
-    def world_to_screen_x(
-        self,
-        player,
-        world_x,
-        world_y
-    ):
-
+    def world_to_screen_x(self, player, world_x, world_y):
+        """Chiếu tọa độ điểm thực tế trong bản đồ lên trục hoành X của màn hình."""
         dx = world_x - player.x
         dy = world_y - player.y
-
-        distance = math.hypot(
-            dx,
-            dy
-        )
-
+        distance = math.hypot(dx, dy)
         if distance <= 0.001:
             return WIDTH // 2, distance
 
-        target_angle = math.atan2(
-            dy,
-            dx
-        )
-
+        target_angle = math.atan2(dy, dx)
         relative_angle = math.atan2(
-            math.sin(
-                target_angle
-                -
-                player.angle
-            ),
-            math.cos(
-                target_angle
-                -
-                player.angle
-            )
+            math.sin(target_angle - player.angle),
+            math.cos(target_angle - player.angle)
         )
 
-        screen_x = (
-            WIDTH / 2
-            +
-            math.tan(
-                relative_angle
-            )
-            *
-            self.projection_plane
-        )
+        screen_x = WIDTH / 2.0 + math.tan(relative_angle) * self.projection_plane
+        return int(screen_x), distance
 
-        return (
-            int(screen_x),
-            distance
-        )
+    def get_object_size(self, distance, world_height=70):
+        """Tính kích thước phóng đại của vật thể 3D theo khoảng cách."""
+        dist = max(distance, 1.0)
+        size = int(self.projection_plane * world_height / dist)
+        return max(4, min(HEIGHT * 2, size))
 
-    # =====================================================
-    # OBJECT SIZE
-    # =====================================================
+    def render(self, screen, player, walls):
+        """Vẽ toàn bộ thế giới 3D bao gồm bầu trời, sàn phối cảnh, tường kết cấu và cột mốc 3D."""
+        self._prepare_walls(walls)
+        horizon = self.get_horizon(player)
+        px, py = player.x, player.y
+        player_ang = player.angle
 
-    def get_object_size(
-        self,
-        distance,
-        world_height=70
-    ):
-
-        distance = max(
-            distance,
-            1
-        )
-
-        size = int(
-            self.projection_plane
-            *
-            world_height
-            /
-            distance
-        )
-
-        size = max(
-            4,
-            min(
-                HEIGHT * 2,
-                size
-            )
-        )
-
-        return size
-
-    # =====================================================
-    # RENDER
-    # =====================================================
-
-    def render(
-        self,
-        screen,
-        player,
-        walls
-    ):
-
-        # ==========================================
-        # CAMERA HORIZON
-        # ==========================================
-
-        horizon = self.get_horizon(
-            player
-        )
-
-        # ==========================================
-        # SKY
-        # ==========================================
-
-        # Trần/trời xanh lam, tối dần lên trên
-        screen.fill(
-            (58, 78, 112)
-        )
+        # ======================================================================
+        # 1. BẦU TRỜI 3D (3D ATMOSPHERIC CELESTIAL SKY & STARS)
+        # ======================================================================
         sky_h = max(0, min(HEIGHT, horizon))
+        if sky_h > 0:
+            bands = 10
+            for b in range(bands):
+                t = b / float(bands)
+                # Dải màu xanh đen chuyển dần sang màu sương khói chân trời
+                col = (
+                    int(14 + 24 * t),
+                    int(18 + 30 * t),
+                    int(28 + 42 * t)
+                )
+                y1 = int(sky_h * b / bands)
+                y2 = int(sky_h * (b + 1) / bands) + 1
+                pygame.draw.rect(screen, col, (0, y1, WIDTH, y2 - y1))
+
+            # Vẽ các vì sao xoay theo góc quay chuột của người chơi (Yaw Tracking)
+            half_fov = self.fov / 2.0
+            for star_ang, star_y_f, star_sz, star_col in self._stars:
+                diff_ang = (star_ang - player_ang + math.pi) % math.tau - math.pi
+                if abs(diff_ang) < half_fov + 0.2:
+                    star_sx = int(WIDTH / 2.0 + math.tan(diff_ang) * self.projection_plane)
+                    star_sy = int(sky_h * star_y_f)
+                    if 0 <= star_sx < WIDTH and 0 <= star_sy < sky_h:
+                        pygame.draw.circle(screen, star_col, (star_sx, star_sy), star_sz)
+
+        # ======================================================================
+        # 2. SÀN NHÀ 3D PHỐI CẢNH (3D PERSPECTIVE GRID FLOOR)
+        # ======================================================================
         floor_top = max(0, min(HEIGHT, horizon))
-        if self.simple_background:
-            screen.fill((46, 62, 92), (0, 0, WIDTH, sky_h))
-            screen.fill((78, 66, 54), (0, floor_top, WIDTH, HEIGHT - floor_top))
-        for band in range(0 if self.simple_background else 6):
-            t = band / 6
-            pygame.draw.rect(
-                screen,
-                (int(34 + 24 * t), int(46 + 32 * t), int(72 + 40 * t)),
-                (0, int(sky_h * band / 6), WIDTH, int(sky_h / 6) + 1)
-            )
+        eff_eye_h = self.eye_height + getattr(player, "vertical_offset", 0.0) * self.jump_camera_scale
+        if getattr(player, "crouching", False):
+            eff_eye_h -= (self.eye_height - self.crouch_height)
+        eff_eye_h = max(20.0, eff_eye_h)
 
-        # ==========================================
-        # GROUND
-        # ==========================================
+        half_fov = self.fov / 2.0
+        cos_l = math.cos(player_ang - half_fov)
+        sin_l = math.sin(player_ang - half_fov)
 
-        # Sàn nâu ấm, sáng dần về phía người chơi, tối ở xa (fog)
-        floor_h = max(1, HEIGHT - floor_top)
-        for band in range(0 if self.simple_background else 8):
-            t = band / 7
-            y0 = floor_top + int(floor_h * band / 8)
-            pygame.draw.rect(
-                screen,
-                (int(52 + 46 * t), int(46 + 38 * t), int(40 + 28 * t)),
-                (0, y0, WIDTH, int(floor_h / 8) + 2)
-            )
-        pygame.draw.rect(
-            screen,
-            (98, 84, 68),
-            (0, HEIGHT, WIDTH, HEIGHT)
-        )
+        # Quét sàn theo từng cặp dòng để đạt hiệu năng 120 FPS
+        step_y = 2
+        for y in range(floor_top + 1, HEIGHT, step_y):
+            dy = y - horizon
+            if dy <= 0:
+                continue
+            z = (eff_eye_h * self.projection_plane) / dy
+            if z > 1600.0:
+                continue
 
-        # ==========================================
-        # RAYCAST
-        # ==========================================
+            # Hệ số sương mù xa mờ dần (Distance Fog)
+            fog = max(0.0, min(1.0, 1.0 - (z / 1250.0) ** 1.3))
 
-        all_dists = self.cast_all(
-            player,
-            walls
-        )
+            # Tọa độ thực của dòng sàn phía trái
+            wyl = py + z * sin_l
 
-        for i in range(
-            self.num_rays
-        ):
+            # Đường lưới gạch ngang phối cảnh (mỗi 80 đơn vị map)
+            is_grid_line = (wyl % 80.0) < 5.5
 
-            distance = all_dists[i]
+            base_r = int(32 + 50 * fog)
+            base_g = int(36 + 46 * fog)
+            base_b = int(44 + 40 * fog)
 
-            # ======================================
-            # FISH-EYE CORRECTION
-            # ======================================
+            if is_grid_line:
+                base_r = min(255, base_r + int(36 * fog))
+                base_g = min(255, base_g + int(46 * fog))
+                base_b = min(255, base_b + int(64 * fog))
 
-            distance *= self.ray_cos[i]
+            pygame.draw.rect(screen, (base_r, base_g, base_b), (0, y, WIDTH, step_y))
 
-            distance = max(
-                distance,
-                0.1
-            )
+        # ======================================================================
+        # 3. PHÓNG TIA TƯỜNG 3D CHÍNH XÁC & KẾT CẤU BỀ MẶT (3D WALLS WITH TRIM)
+        # ======================================================================
+        ray_w = self.ray_width
 
-            # ======================================
-            # WALL HEIGHT
-            # ======================================
+        for i in range(self.num_rays):
+            cam_x = (i / float(self.num_rays)) - 0.5
+            ray_ang = player_ang + math.atan(cam_x * 2.0 * math.tan(half_fov))
+            dx = math.cos(ray_ang)
+            dy = math.sin(ray_ang)
 
-            wall_height = int(
-                self.projection_plane
-                *
-                180
-                /
-                distance
-            )
+            closest_t = 2200.0
+            hit_u = 0.0
+            hit_face = 0  # 0=Bắc, 1=Nam, 2=Tây, 3=Đông
 
-            wall_height = min(
-                wall_height,
-                HEIGHT * 2
-            )
+            # Giao điểm mặt ngang
+            if dy > 1e-6:
+                inv_dy = 1.0 / dy
+                for y, x1, x2 in self._h_north:
+                    t = (y - py) * inv_dy
+                    if 0.1 < t < closest_t:
+                        x = px + t * dx
+                        if x1 <= x <= x2:
+                            closest_t = t
+                            hit_u = x % 64.0
+                            hit_face = 0
+            elif dy < -1e-6:
+                inv_dy = 1.0 / dy
+                for y, x1, x2 in self._h_south:
+                    t = (y - py) * inv_dy
+                    if 0.1 < t < closest_t:
+                        x = px + t * dx
+                        if x1 <= x <= x2:
+                            closest_t = t
+                            hit_u = x % 64.0
+                            hit_face = 1
 
-            # ======================================
-            # WALL POSITION
-            # ======================================
+            # Giao điểm mặt dọc
+            if dx > 1e-6:
+                inv_dx = 1.0 / dx
+                for x, y1, y2 in self._v_west:
+                    t = (x - px) * inv_dx
+                    if 0.1 < t < closest_t:
+                        y = py + t * dy
+                        if y1 <= y <= y2:
+                            closest_t = t
+                            hit_u = y % 64.0
+                            hit_face = 2
+            elif dx < -1e-6:
+                inv_dx = 1.0 / dx
+                for x, y1, y2 in self._v_east:
+                    t = (x - px) * inv_dx
+                    if 0.1 < t < closest_t:
+                        y = py + t * dy
+                        if y1 <= y <= y2:
+                            closest_t = t
+                            hit_u = y % 64.0
+                            hit_face = 3
 
-            top = (
-                horizon
-                -
-                wall_height // 2
-            )
+            if closest_t >= 2199.0:
+                self.z_buffer[i] = 9999.0
+                continue
 
-            # ======================================
-            # SHADING
-            # ======================================
+            # Khử hiệu ứng Fish-eye (mắt cá)
+            corrected_dist = closest_t * math.cos(ray_ang - player_ang)
+            corrected_dist = max(0.1, corrected_dist)
+            self.z_buffer[i] = corrected_dist
 
-            shade = max(
-                25,
-                min(
-                    180,
-                    int(
-                        18000
-                        /
-                        (
-                            distance
-                            +
-                            100
-                        )
-                    )
-                )
-            )
+            # Chiều cao tường theo phối cảnh 3D
+            wall_h = int(self.projection_plane * 180.0 / corrected_dist)
+            wall_top = horizon - wall_h // 2
 
-            # Tường tông xám-lạnh nhạt, khác sàn nâu và trần xanh
-            color = (
-                int(shade * 0.80),
-                int(shade * 0.92),
-                min(
-                    210,
-                    int(shade * 1.08) + 8
-                )
-            )
+            # Ánh sáng định hướng 4 mặt (Directional Lighting Shading)
+            face_mult = [1.05, 0.88, 0.78, 1.15][hit_face]
+            fog_w = max(0.08, min(1.0, 1.0 - (corrected_dist / 1400.0) ** 1.2))
 
-            # ======================================
-            # DRAW WALL
-            # ======================================
+            br = int(75 * face_mult * fog_w)
+            bg = int(82 * face_mult * fog_w)
+            bb = int(98 * face_mult * fog_w)
 
-            # screen.fill nhanh hơn pygame.draw.rect cho hình chữ nhật đặc
-            for x, w in self.col_pieces[i]:
-                screen.fill(
-                    color,
-                    (x, top, w, wall_height)
-                )
+            # Rãnh khớp nối / Cột trụ dọc 3D mỗi 64 đơn vị map
+            if hit_u < 4.0 or hit_u > 60.0:
+                br = int(br * 0.70)
+                bg = int(bg * 0.70)
+                bb = int(bb * 0.70)
+
+            rx = int(i * ray_w)
+            rw_int = int(ray_w + 1)
+
+            # Thân tường chính
+            pygame.draw.rect(screen, (br, bg, bb), (rx, wall_top, rw_int, wall_h))
+
+            # Chân tường gia cố bảo vệ (Baseboard Kickplate)
+            base_h = max(2, int(wall_h * 0.12))
+            base_col = (int(br * 0.55), int(bg * 0.55), int(bb * 0.60))
+            pygame.draw.rect(screen, base_col, (rx, wall_top + wall_h - base_h, rw_int, base_h))
+
+            # Phào trần kim loại bắt sáng (Top Cornice Trim)
+            trim_h = max(2, int(wall_h * 0.08))
+            trim_col = (min(255, int(br * 1.30)), min(255, int(bg * 1.30)), min(255, int(bb * 1.35)))
+            pygame.draw.rect(screen, trim_col, (rx, wall_top, rw_int, trim_h))
+
+            # Vạch neon phản quang phong cách Sci-Fi / Valorant ở độ cao 55%
+            stripe_h = max(1, int(wall_h * 0.025))
+            stripe_y = wall_top + int(wall_h * 0.55)
+            stripe_col = (int(30 * fog_w), int(185 * fog_w), int(225 * fog_w))
+            pygame.draw.rect(screen, stripe_col, (rx, stripe_y, rw_int, stripe_h))
+
+        # ======================================================================
+        # 4. CỘT MỐC 3D HOLOGRAM ĐỊNH VỊ SITE A, B, C (3D TACTICAL BEACONS)
+        # ======================================================================
+        if self._font_beacon is None:
+            self._font_beacon = pygame.font.SysFont("Arial", 18, bold=True)
+
+        for label, site_rect, col_rgb in [
+            ("A", site_A, (60, 220, 130)),
+            ("B", site_B, (70, 150, 240)),
+            ("C", site_C, (240, 210, 70))
+        ]:
+            cx, cy = site_rect.centerx, site_rect.centery
+            dx, dy = cx - px, cy - py
+            dist = math.hypot(dx, dy)
+            if dist < 10.0 or dist > 1600.0:
+                continue
+
+            ang = math.atan2(dy, dx)
+            rel_ang = math.atan2(math.sin(ang - player_ang), math.cos(ang - player_ang))
+            if abs(rel_ang) > half_fov + 0.15:
+                continue
+
+            sx = int(WIDTH / 2.0 + math.tan(rel_ang) * self.projection_plane)
+            col_idx = min(self.num_rays - 1, max(0, int(sx / ray_w)))
+
+            # Kiểm tra nếu nằm trong tầm nhìn hoặc không bị chắn hoàn toàn bởi tường
+            is_visible = dist < self.z_buffer[col_idx] + 60.0
+
+            b_h = max(10, int(self.projection_plane * 110.0 / dist))
+            by_top = horizon - b_h // 2
+
+            if is_visible:
+                # Cột sáng Hologram đứng
+                beam_surf = pygame.Surface((28, b_h * 2), pygame.SRCALPHA)
+                pygame.draw.rect(beam_surf, (*col_rgb, 45), (6, 0, 16, b_h * 2))
+                pygame.draw.rect(beam_surf, (*col_rgb, 140), (10, 0, 8, b_h * 2))
+                screen.blit(beam_surf, (sx - 14, by_top - b_h))
+
+            # Biểu tượng Hologram Site lơ lửng trên không
+            icon_y = by_top - 32
+            pygame.draw.circle(screen, (20, 24, 32), (sx, icon_y), 18)
+            pygame.draw.circle(screen, col_rgb, (sx, icon_y), 18, 2)
+            lbl_txt = self._font_beacon.render(label, True, col_rgb)
+            screen.blit(lbl_txt, (sx - lbl_txt.get_width() // 2, icon_y - lbl_txt.get_height() // 2))
+
+            dist_m = f"{int(dist / 20.0)}m"
+            d_txt = self._font_beacon.render(dist_m, True, (215, 225, 235))
+            screen.blit(d_txt, (sx - d_txt.get_width() // 2, icon_y + 20))

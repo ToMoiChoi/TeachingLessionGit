@@ -1,7 +1,6 @@
 import pygame
-from font_vn import get_font
 import math
-from game.map import line_blocked
+from game.map import line_blocked, check_smoke_blocks
 from graphics.weapon_skins import get_viewmodel_parts, get_dropped_skin
 from graphics.cs_viewmodel import CSViewModel
 
@@ -22,11 +21,12 @@ class GameView:
         self._vm_t = 0.0
         self.tracers = []
         self.tracer_duration = 90
-        self.font_big = get_font(44, bold=True)
-        self.font_mid = get_font(24, bold=True)
-        self.font_small = get_font(20)
-        self.font_victory = get_font(84, bold=True)
-        self.font_hint = get_font(22)
+        font_family = "segoeui,tahoma,arial"
+        self.font_big = pygame.font.SysFont(font_family, 44, bold=True)
+        self.font_mid = pygame.font.SysFont(font_family, 24, bold=True)
+        self.font_small = pygame.font.SysFont(font_family, 20)
+        self.font_victory = pygame.font.SysFont(font_family, 84, bold=True)
+        self.font_hint = pygame.font.SysFont(font_family, 22)
 
     def spawn_tracer(self, end_pos):
         self.tracers.append({
@@ -83,7 +83,8 @@ class GameView:
 
     def render_frame(self, player, enemies, walls, renderer, minimap, hud, horizon,
                      game_state, round_timer, buy_timer, player_score, enemy_score,
-                     spike_carried, spike_planted, spike_timer, spike_max_time, hit_flash_timer, match_winner,
+                     spike_carried=False, spike_planted=False, spike_timer=0, spike_max_time=0,
+                     hit_flash_timer=0, match_winner=None,
                      smokes=None, fires=None, bomb_fuse=None, dropped_weapons=None):
         # 1. Thế giới 3D Raycasting
         renderer.render(self.screen, player, walls)
@@ -102,6 +103,8 @@ class GameView:
             if abs(rel_ang) > renderer.fov / 2:
                 continue
             if line_blocked(player.x, player.y, e.x, e.y):
+                continue
+            if check_smoke_blocks(player.x, player.y, e.x, e.y, smokes):
                 continue
             wall_dist = renderer.raycast(player, ang, walls)
             if dist >= wall_dist:
@@ -175,56 +178,13 @@ class GameView:
                 bw, bh = max(8, int(size * 0.45)), size
                 btop = horizon + int(bh * 0.5) - bh
 
-                head_h = max(3, int(bh * 0.22))
-                body_h = max(4, int(bh * 0.43))
-                leg_h = max(3, bh - head_h - body_h)
-
-                head_y = btop
-                body_y = btop + head_h
-                leg_y = body_y + body_h
-
-                # --- 1. CHÂN (LEGS) ---
-                leg_w = max(2, int(bw * 0.38))
-                gap = max(1, int(bw * 0.08))
-                pygame.draw.rect(self.screen, (40, 44, 52), (int(sx - leg_w - gap // 2), int(leg_y), leg_w, leg_h))
-                pygame.draw.rect(self.screen, (40, 44, 52), (int(sx + gap // 2), int(leg_y), leg_w, leg_h))
-                boot_h = max(2, int(leg_h * 0.25))
-                pygame.draw.rect(self.screen, (20, 20, 25), (int(sx - leg_w - gap // 2), int(leg_y + leg_h - boot_h), leg_w, boot_h))
-                pygame.draw.rect(self.screen, (20, 20, 25), (int(sx + gap // 2), int(leg_y + leg_h - boot_h), leg_w, boot_h))
-
-                # --- 2. THÂN / NGƯỜI (BODY) ---
-                pygame.draw.rect(self.screen, (185, 45, 55), (int(sx - bw / 2), int(body_y), bw, body_h), border_radius=max(1, int(bw * 0.1)))
-                vest_w = max(4, int(bw * 0.72))
-                vest_h = max(3, int(body_h * 0.68))
-                pygame.draw.rect(self.screen, (55, 60, 72), (int(sx - vest_w / 2), int(body_y + 2), vest_w, vest_h), border_radius=2)
-
-                # --- 3. ĐẦU (HEAD) ---
-                hr = max(4, int(head_h * 0.48))
-                head_cx = int(sx)
-                head_cy = int(head_y + hr)
-                pygame.draw.circle(self.screen, (230, 185, 145), (head_cx, head_cy), hr)
-                pygame.draw.circle(self.screen, (45, 50, 60), (head_cx, head_cy - 1), hr, draw_top_left=True, draw_top_right=True)
-                visor_w = max(3, int(hr * 1.2))
-                visor_h = max(2, int(hr * 0.35))
-                pygame.draw.rect(self.screen, (30, 30, 35), (head_cx - visor_w // 2, head_cy - visor_h // 2, visor_w, visor_h))
-                pygame.draw.circle(self.screen, (240, 60, 60), (head_cx, head_cy), max(1, int(hr * 0.2)))
-
-                # --- THANH MÁU & GIÁP ---
-                bar_w = max(25, int(size * 0.8))
-                bx = int(sx - bar_w / 2)
-                by = int(btop - 18)
-                pygame.draw.rect(self.screen, (15, 18, 22), (bx - 1, by - 1, bar_w + 2, 7), border_radius=2)
-                pygame.draw.rect(self.screen, (60, 220, 100), (bx, by, int(bar_w * max(0, e.hp) / 100), 5), border_radius=1)
-                if getattr(e, "armor", 0) > 0:
-                    pygame.draw.rect(self.screen, (70, 150, 240), (bx, by - 4, int(bar_w * min(1.0, e.armor / 50)), 3), border_radius=1)
-
-                now_ms = pygame.time.get_ticks()
-                if hasattr(e, "last_hit_time") and now_ms - e.last_hit_time < 900:
-                    p_text = getattr(e, "last_hit_part", "body").upper()
-                    dmg_val = getattr(e, "last_hit_damage", 0)
-                    txt_col = (255, 60, 60) if p_text == "HEAD" else ((240, 200, 70) if p_text == "BODY" else (180, 190, 210))
-                    hit_surf = self.font_small.render(f"{p_text} -{int(dmg_val)}", True, txt_col)
-                    self.screen.blit(hit_surf, (sx - hit_surf.get_width() // 2, by - 20))
+                # Vẽ kẻ địch hình khối Roblox dạng người thật 3D
+                if hasattr(e, "draw_roblox_3d"):
+                    e.draw_roblox_3d(self.screen, sx, btop, bw, bh, self.font_small,
+                                     player=player, renderer=renderer, horizon=horizon)
+                else:
+                    # Dự phòng nếu không có hàm
+                    pygame.draw.rect(self.screen, (185, 45, 55), (int(sx - bw / 2), int(btop), bw, bh))
 
             elif itype == "smoke":
                 _, dist, sx, rad, s = item
@@ -316,51 +276,14 @@ class GameView:
         cur_w = getattr(player, "weapon", "")
         is_scoped = getattr(player, "scoped", False)
 
-        if cur_w not in ("SMOKE", "MOLOTOV", "BOMB"):
-            if is_scoped:
-                # Khi đang bật kính ngắm (ADS / Scope), ẩn thân súng để tầm nhìn ngắm chuẩn xác
-                self.muzzle_x = self.width // 2
-                self.muzzle_y = self.height // 2
-            else:
-                self.muzzle_x, self.muzzle_y = self.cs_viewmodel.draw(
-                    self.screen, player, reload_drop, side_sway
-                )
-
-        elif cur_w == "SMOKE":
-            # Quả Smoke trên tay (bên phải hoặc trái theo righthand)
-            gx = (self.width // 2 + 120) if righthand else (self.width // 2 - 166)
-            gy = self.height - 130
-            pygame.draw.rect(self.screen, (75, 80, 90), (gx, gy, 46, 75), border_radius=6)
-            pygame.draw.rect(self.screen, (240, 210, 50), (gx, gy + 20, 46, 12))
-            pygame.draw.rect(self.screen, (50, 55, 62), (gx + 14, gy - 16, 18, 18), border_radius=3)
-            pygame.draw.circle(self.screen, (200, 200, 210), (gx + 10, gy - 8), 7, 2)
-            lbl = self.font_small.render("SMOKE", True, (240, 240, 245))
-            self.screen.blit(lbl, (gx - 5, gy + 36))
-
-        elif cur_w == "MOLOTOV":
-            # Chai Bom xăng trên tay
-            gx = (self.width // 2 + 120) if righthand else (self.width // 2 - 166)
-            gy = self.height - 140
-            pygame.draw.rect(self.screen, (40, 110, 70), (gx + 6, gy + 25, 42, 70), border_radius=8)
-            pygame.draw.rect(self.screen, (40, 110, 70), (gx + 20, gy, 14, 28))
-            pygame.draw.rect(self.screen, (200, 190, 170), (gx + 18, gy - 8, 18, 12))
-            fl_sz = int(12 + 5 * math.sin(pygame.time.get_ticks() * 0.02))
-            pygame.draw.circle(self.screen, (255, 120, 20), (gx + 27, gy - 16), fl_sz)
-            pygame.draw.circle(self.screen, (255, 230, 40), (gx + 27, gy - 16), max(2, fl_sz // 2))
-            lbl = self.font_small.render("MOLOTOV", True, (255, 200, 60))
-            self.screen.blit(lbl, (gx - 12, gy + 45))
-
-        elif cur_w == "BOMB":
-            # Quả bom hẹn giờ trên tay
-            gx = (self.width // 2 + 130) if righthand else (self.width // 2 - 170)
-            gy = self.height - 110
-            pygame.draw.circle(self.screen, (32, 35, 42), (gx + 20, gy + 20), 40)
-            pygame.draw.circle(self.screen, (60, 65, 75), (gx + 12, gy + 12), 12)
-            pygame.draw.rect(self.screen, (10, 12, 16), (gx - 2, gy + 8, 44, 22), border_radius=4)
-            f_val = f"{max(0.0, bomb_fuse):.1f}s" if (bomb_fuse is not None and bomb_fuse > 0) else "5.0s"
-            t_col = (255, 40, 40) if (pygame.time.get_ticks() // 200) % 2 == 0 else (255, 180, 40)
-            digi = self.font_small.render(f_val, True, t_col)
-            self.screen.blit(digi, (gx + 20 - digi.get_width() // 2, gy + 11))
+        if is_scoped and cur_w not in ("SMOKE", "MOLOTOV", "BOMB"):
+            # Khi đang bật kính ngắm (ADS / Scope), ẩn thân súng để tầm nhìn ngắm chuẩn xác
+            self.muzzle_x = self.width // 2
+            self.muzzle_y = self.height // 2
+        else:
+            self.muzzle_x, self.muzzle_y = self.cs_viewmodel.draw(
+                self.screen, player, reload_drop, side_sway, bomb_fuse
+            )
 
         # 4. Tia đạn (Tracers)
         now = pygame.time.get_ticks()
@@ -370,12 +293,9 @@ class GameView:
             prog = age / t["duration"]
             bx = self.muzzle_x + (t["end"][0] - self.muzzle_x) * prog
             by = self.muzzle_y + (t["end"][1] - self.muzzle_y) * prog
-            # Chỉ tạo surface vừa khít tia đạn, không tạo surface cả màn hình mỗi frame
-            left, top = int(min(self.muzzle_x, bx)) - 2, int(min(self.muzzle_y, by)) - 2
-            trail = pygame.Surface((int(abs(bx - self.muzzle_x)) + 5, int(abs(by - self.muzzle_y)) + 5), pygame.SRCALPHA)
-            pygame.draw.line(trail, (255, 235, 160, max(0, 255 - int(255 * prog))),
-                             (self.muzzle_x - left, self.muzzle_y - top), (bx - left, by - top), 2)
-            self.screen.blit(trail, (left, top))
+            trail = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            pygame.draw.line(trail, (255, 235, 160, max(0, 255 - int(255 * prog))), (self.muzzle_x, self.muzzle_y), (bx, by), 2)
+            self.screen.blit(trail, (0, 0))
             pygame.draw.circle(self.screen, (255, 255, 225), (int(bx), int(by)), 3)
 
         # 5. Lửa đầu nòng (Muzzle flash)
@@ -420,15 +340,10 @@ class GameView:
             by = 175
             pygame.draw.rect(self.screen, (10, 5, 5), (bx - 2, by - 2, bw + 4, bh + 4), border_radius=8)
             pygame.draw.rect(self.screen, box_col, (bx, by, bw, bh), border_radius=6)
-            w_txt = self.font_mid.render(f"BOM SẼ NỔ TRONG: {max(0.0, bomb_fuse):.1f}s", True, (255, 255, 255))
+            w_txt = self.font_mid.render(f"BOMB EXPLODES IN: {max(0.0, bomb_fuse):.1f}s", True, (255, 255, 255))
             self.screen.blit(w_txt, (self.width // 2 - w_txt.get_width() // 2, by + 10))
 
-        # 7. Giao diện Spike
-        if spike_carried:
-            self.screen.blit(self.font_mid.render("ĐANG GIỮ SPIKE", True, (240, 210, 70)), (24, 85))
-        elif spike_planted:
-            s_txt = self.font_mid.render(f"SPIKE NỔ SAU {max(0, spike_max_time - spike_timer):.1f}s", True, (220, 60, 70))
-            self.screen.blit(s_txt, (self.width // 2 - s_txt.get_width() // 2, 130))
+        # Spike UI removed
 
         # 8. Giao diện Mua sắm (Buy Phase) - Đặt ở tầng y=170 tách biệt khỏi Header tỷ số
         if game_state == "BUY":
@@ -436,13 +351,13 @@ class GameView:
             ov.fill((0, 0, 0, 75))
             self.screen.blit(ov, (0, 0))
 
-            t1 = self.font_big.render("GIAI ĐOẠN MUA SẮM", True, (245, 245, 245))
+            t1 = self.font_big.render("BUY PHASE", True, (245, 245, 245))
             self.screen.blit(t1, (self.width // 2 - t1.get_width() // 2, 170))
 
-            t2 = self.font_mid.render(f"Bắt đầu sau: {max(0, int(buy_timer))} giây", True, (255, 215, 60))
+            t2 = self.font_mid.render(f"Starts in: {max(0, int(buy_timer))}s", True, (255, 215, 60))
             self.screen.blit(t2, (self.width // 2 - t2.get_width() // 2, 225))
 
-            t3 = self.font_small.render("Ấn [B] để mở Cửa hàng mua vũ khí & trang bị", True, (215, 220, 230))
+            t3 = self.font_small.render("Press [B] to open Shop", True, (215, 220, 230))
             self.screen.blit(t3, (self.width // 2 - t3.get_width() // 2, 260))
 
         # 9. Màn hình nhấp nháy đỏ khi bị bắn trúng
@@ -465,5 +380,5 @@ class GameView:
             self.screen.blit(vic, (self.width // 2 - vic.get_width() // 2, self.height // 2 - 120))
             sc = self.font_hint.render(f"{player_score} - {enemy_score}", True, (235, 235, 235))
             self.screen.blit(sc, (self.width // 2 - sc.get_width() // 2, self.height // 2))
-            h_txt = self.font_hint.render("Nhấn F12 để chụp ảnh | Nhấn ENTER để chơi lại", True, (170, 175, 180))
+            h_txt = self.font_hint.render("Press F12 for Screenshot | Press ENTER to Play Again", True, (170, 175, 180))
             self.screen.blit(h_txt, (self.width // 2 - h_txt.get_width() // 2, self.height // 2 + 60))

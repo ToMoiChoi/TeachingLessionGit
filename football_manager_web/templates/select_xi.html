@@ -1,57 +1,1145 @@
-{% extends "base.html" %}
-{% block title %}Xếp đội hình{% endblock %}
-{% set club = team %}
-{% block content %}
-<h1>📌 Xếp đội hình (chọn 11 đá chính)</h1>
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đội Của Tôi - Sắp Xếp Đội Hình - FC Mobile - {{ club.name }}</title>
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --panel-bg: rgba(6, 12, 28, 0.94);
+            --panel-border: rgba(56, 189, 248, 0.35);
+            --primary: #10b981;
+            --accent: #38bdf8;
+            --accent-cyan: #00f2fe;
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.5);
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-<form method="POST" id="xiForm">
-    <div class="card mb-2">
-        <div class="actions" style="align-items:center">
-            <label for="formation" class="muted">Sơ đồ:</label>
-            <select name="formation" id="formation" style="width:auto">
-                {% for f in ['4-3-3', '4-2-3-1', '5-3-2'] %}
-                <option value="{{ f }}" {{ 'selected' if team.formation == f }}>{{ f }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" name="auto" value="1" class="btn primary">🤖 Tự động xếp đội hình (AI)</button>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body {
+            background: #020612;
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Widget nhạc FIFA */
+        #fifa-player-widget {
+            top: 10px !important;
+            right: 170px !important;
+            bottom: auto !important;
+            left: auto !important;
+        }
+
+        /* ==================== TOP NAVIGATION BAR ==================== */
+        .fc-header-bar {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(6, 12, 26, 0.94);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            z-index: 100;
+            position: relative;
+        }
+        .fc-header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .fc-back-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.85);
+            border: 1.5px solid #38bdf8;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .fc-back-btn:hover { background: #0284c7; transform: scale(1.06); }
+
+        .fc-screen-title {
+            font-size: 1.45rem;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .fc-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .fc-top-icon-btn {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #cbd5e1;
+            font-size: 1.1rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fc-top-icon-btn:hover { background: #1e293b; color: #fff; border-color: #38bdf8; }
+
+        /* ==================== MAIN VIEWPORT ==================== */
+        .fc-viewport {
+            flex: 1;
+            position: relative;
+            display: flex;
+            background: radial-gradient(circle at 50% 15%, #0d1e3d 0%, #030712 90%);
+            overflow: hidden;
+        }
+
+        /* ==================== LEFT CONTROL DOCK ==================== */
+        .fc-left-dock {
+            width: 310px;
+            padding: 14px;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(4, 8, 20, 0.88);
+            backdrop-filter: blur(14px);
+            border-right: 1px solid rgba(56, 189, 248, 0.2);
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+        }
+        .fc-left-dock::-webkit-scrollbar { width: 4px; }
+        .fc-left-dock::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+        .fc-team-card-panel {
+            background: var(--panel-bg);
+            border: 1.5px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(56, 189, 248, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fc-dropdown-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.05rem;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .fc-badge-ovr-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 4px;
+        }
+        .fc-club-crest-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .fc-crest-icon {
+            font-size: 2.4rem;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8));
+        }
+        .fc-club-text-name {
+            font-size: 1.05rem;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+        }
+        .fc-league-sub {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        /* FC RED/GOLD OVR SHIELD */
+        .fc-ovr-shield-badge {
+            background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 4px 10px;
+            text-align: center;
+            box-shadow: 0 6px 15px rgba(185, 28, 28, 0.4), 0 0 15px rgba(245, 158, 11, 0.35);
+        }
+        .ovr-shield-label {
+            font-size: 0.65rem;
+            font-weight: 900;
+            color: #fef08a;
+            letter-spacing: 1px;
+        }
+        .ovr-shield-num {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1;
+        }
+
+        /* Squad Value Row */
+        .fc-value-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-weight: 900;
+            font-size: 0.95rem;
+            color: #fef08a;
+        }
+
+        /* 3 Honor Badges */
+        .fc-honor-badges-row {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 2px;
+        }
+        .honor-badge-item {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Formation Pill */
+        .fc-formation-pill {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1.5px solid #38bdf8;
+            border-radius: 20px;
+            padding: 7px 14px;
+            font-size: 0.95rem;
+            font-weight: 900;
+            color: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+            transition: all 0.2s;
+        }
+        .fc-formation-pill:hover {
+            border-color: #00f2fe;
+            box-shadow: 0 0 18px rgba(0, 242, 254, 0.45);
+            transform: scale(1.02);
+        }
+
+        /* 4 Neon Action Buttons */
+        .fc-dock-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .dock-action-btn {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 22px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1.8px solid #38bdf8;
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 0 10px rgba(56, 189, 248, 0.2);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .dock-action-btn:hover {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border-color: #00f2fe;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.7), 0 0 20px rgba(0, 242, 254, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* ==================== 3D SOCCER PITCH (PERFECTLY CENTERED) ==================== */
+        .pitch-3d-board {
+            position: absolute;
+            inset: 0;
+            left: 310px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px 20px 80px 20px;
+            background: 
+                /* Grass turf mowing stripes */
+                repeating-linear-gradient(
+                    to bottom,
+                    #15803d 0px,
+                    #15803d 44px,
+                    #166534 44px,
+                    #166534 88px
+                );
+            box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 0, 0, 0.9);
+            overflow: hidden;
+        }
+
+        /* Vạch kẻ sân thi đấu chuẩn thẳng đứng (Vertical Pitch) */
+        .pitch-lines-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.65;
+        }
+
+        /* Đèn sân vận động */
+        .stadium-lighting-ambient {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1) 0%, rgba(0, 0, 0, 0.7) 85%);
+            pointer-events: none;
+        }
+
+        /* FORMATION ROWS CONTAINER (PERFECTLY CENTERED) */
+        #pitchRowsContainer {
+            width: 100%;
+            max-width: 860px;
+            height: 100%;
+            max-height: 660px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            margin: 0 auto;
+        }
+
+        .pitch-formation-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 36px;
+            width: 100%;
+        }
+
+        .pitch-card-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+        .pitch-card-slot:hover { transform: translateY(-4px) scale(1.06); }
+        .pitch-card-slot.active-swap-source {
+            transform: translateY(-6px) scale(1.1);
+            animation: pulseCyan 1.2s infinite;
+        }
+        @keyframes pulseCyan {
+            0% { filter: drop-shadow(0 0 10px #00f2fe); }
+            50% { filter: drop-shadow(0 0 25px #00f2fe); }
+            100% { filter: drop-shadow(0 0 10px #00f2fe); }
+        }
+
+        /* Pitch FC Mobile Card Structure */
+        .pitch-fut-card {
+            width: 84px;
+            height: 110px;
+            position: relative;
+            background: linear-gradient(145deg, #0b1e42 0%, #030816 100%);
+            border-radius: 9px;
+            border: 1.8px solid rgba(56, 189, 248, 0.45);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.7), inset 0 0 10px rgba(56, 189, 248, 0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            padding: 3px;
+        }
+        .pitch-fut-card.tier-ucl {
+            border-color: #0284c7;
+            background: linear-gradient(145deg, #0c2b64 0%, #040d21 100%);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.7), inset 0 0 12px rgba(2, 132, 199, 0.4);
+        }
+        .pitch-fut-card.tier-gold {
+            border-color: #f59e0b;
+            background: linear-gradient(145deg, #452a03 0%, #170d01 100%);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.7), inset 0 0 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .p-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 3;
+            line-height: 1;
+        }
+        .p-diamonds { font-size: 0.5rem; color: #38bdf8; }
+        .p-ovr { font-size: 0.92rem; font-weight: 900; color: #fff; }
+        .p-pos { font-size: 0.6rem; font-weight: 800; color: #38bdf8; }
+
+        .p-avatar-box {
+            position: absolute;
+            inset: 12px 2px 24px 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .p-avatar-box svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.85)); }
+
+        .p-bottom-banner {
+            background: rgba(4, 9, 20, 0.92);
+            border-radius: 4px;
+            padding: 1px 2px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            text-align: center;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .p-name {
+            font-size: 0.58rem;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 54px;
+        }
+        .p-train-lvl {
+            background: #f59e0b;
+            color: #000;
+            font-size: 0.52rem;
+            font-weight: 900;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Position Pill Under Card */
+        .pitch-pos-pill {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1.5px solid #38bdf8;
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            font-weight: 900;
+            color: #38bdf8;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            letter-spacing: 0.5px;
+        }
+
+        /* ==================== BOTTOM SUBSTITUTES DRAWER DOCK ==================== */
+        .fc-subs-drawer {
+            position: absolute;
+            bottom: 0;
+            left: 310px;
+            right: 0;
+            height: 72px;
+            background: rgba(4, 9, 22, 0.94);
+            backdrop-filter: blur(14px);
+            border-top: 1.5px solid rgba(56, 189, 248, 0.35);
+            padding: 6px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 40;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+            transition: transform 0.3s ease;
+        }
+        .fc-subs-drawer.collapsed { transform: translateY(72px); }
+
+        .fc-subs-cards-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 2px 0;
+        }
+        .fc-subs-cards-row::-webkit-scrollbar { height: 3px; }
+        .fc-subs-cards-row::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 3px; }
+
+        .sub-mini-card {
+            width: 52px;
+            height: 60px;
+            background: linear-gradient(145deg, #0b1e42 0%, #030816 100%);
+            border: 1.5px solid #38bdf8;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .sub-mini-card:hover { transform: translateY(-3px) scale(1.08); border-color: #00f2fe; }
+        .sub-mini-card.active-swap-source {
+            border-color: #00f2fe;
+            box-shadow: 0 0 15px #00f2fe;
+            transform: translateY(-4px) scale(1.1);
+        }
+
+        .sub-empty-slot {
+            width: 52px;
+            height: 60px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1.5px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #64748b;
+        }
+
+        /* Auto-sub toggle */
+        .fc-auto-sub-toggle-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #cbd5e1;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #334155;
+            transition: .3s;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #10b981; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* ==================== FORMATION & TACTICS MODAL ==================== */
+        .fc-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .fc-modal-dialog {
+            background: #091326;
+            border: 2px solid #38bdf8;
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 460px;
+            width: 90%;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.9), 0 0 30px rgba(56, 189, 248, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .modal-hdr { font-size: 1.3rem; font-weight: 900; color: #fff; text-align: center; }
+        .opt-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 8px 0;
+        }
+        .opt-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1.5px solid #334155;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 800;
+            color: #fff;
+            transition: all 0.2s;
+        }
+        .opt-card:hover, .opt-card.selected {
+            border-color: #00f2fe;
+            background: #0284c7;
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.5);
+        }
+
+        /* Toast */
+        #pitchToast {
+            position: fixed;
+            bottom: 85px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1.5px solid #10b981;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(16, 185, 129, 0.4);
+            font-weight: 800;
+            font-size: 0.9rem;
+            display: none;
+            z-index: 300;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== TOP NAVIGATION BAR ==================== -->
+    <header class="fc-header-bar">
+        <div class="fc-header-left">
+            <a href="{{ url_for('dashboard') }}" class="fc-back-btn" title="Quay về Trang Chủ">❮</a>
+            <div class="fc-screen-title">📋 ĐỘI CỦA TÔI</div>
         </div>
-        <p class="muted" style="margin:8px 0 0">(Hệ thống sẽ chọn 11 cầu thủ phù hợp nhất với sơ đồ {{ team.formation }})</p>
+
+        <div class="fc-header-right">
+            <a href="{{ url_for('squad') }}" class="fc-top-icon-btn" title="Danh Sách Thẻ Cầu Thủ">👥</a>
+            <a href="{{ url_for('transfer_market') }}" class="fc-top-icon-btn" title="Thị Trường Chuyển Nhượng">🛒</a>
+            <a href="{{ url_for('dashboard') }}" class="fc-top-icon-btn" title="Về Dashboard">🏠</a>
+        </div>
+    </header>
+
+    <!-- ==================== MAIN VIEWPORT ==================== -->
+    <div class="fc-viewport">
+
+        <!-- LEFT CONTROL DOCK -->
+        <aside class="fc-left-dock">
+            <div class="fc-team-card-panel">
+                <div class="fc-dropdown-title-row" onclick="openFormationModal()">
+                    <span>{{ club.name }}</span>
+                    <span>▼</span>
+                </div>
+
+                <div class="fc-badge-ovr-row">
+                    <div class="fc-club-crest-box">
+                        <div class="fc-crest-icon">🐓</div>
+                        <div>
+                            <div class="fc-club-text-name">{{ club.name }}</div>
+                            <div class="fc-league-sub">{{ club.league }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Red & Gold Hexagon OVR Shield -->
+                    <div class="fc-ovr-shield-badge">
+                        <div class="ovr-shield-label">OVR</div>
+                        <div class="ovr-shield-num" id="teamOvrBadge">{{ team_ovr }}</div>
+                    </div>
+                </div>
+
+                <!-- Squad Value -->
+                <div class="fc-value-row">
+                    <span>🪙</span>
+                    <span id="teamValueBadge">{{ "{:,.0f}".format(team_value).replace(',', '.') }}</span>
+                </div>
+
+                <!-- 3 Honor Badges -->
+                <div class="fc-honor-badges-row">
+                    <div class="honor-badge-item">👑</div>
+                    <div class="honor-badge-item">🛡️</div>
+                    <div class="honor-badge-item">⭐</div>
+                </div>
+
+                <!-- Formation Indicator -->
+                <div class="fc-formation-pill" onclick="openFormationModal()">
+                    <span>↔</span>
+                    <span id="currentFormationText">{{ club.formation }}</span>
+                </div>
+            </div>
+
+            <!-- 4 Neon Action Buttons -->
+            <div class="fc-dock-btn-group">
+                <button class="dock-action-btn" onclick="openTacticsModal()">
+                    <span>📐</span> ĐẤU PHÁP
+                </button>
+
+                <button class="dock-action-btn" onclick="autoBuildSquad()">
+                    <span>🔄</span> TỰ ĐỘNG XÂY DỰNG
+                </button>
+
+                <button class="dock-action-btn" onclick="toggleSubsDrawer()">
+                    <span>👥</span> DỰ BỊ
+                </button>
+
+                <button class="dock-action-btn" onclick="saveLineup()">
+                    <span>💾</span> LƯU ĐỘI HÌNH
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN 3D SOCCER PITCH (PERFECTLY VERTICAL & CENTERED) -->
+        <main class="pitch-3d-board" id="pitchBoard">
+            <!-- Vạch kẻ sân thi đấu thẳng đứng (Vertical Field SVG) -->
+            <svg class="pitch-lines-svg" viewBox="0 0 800 1000" preserveAspectRatio="none">
+                <!-- Vạch biên sân -->
+                <rect x="50" y="30" width="700" height="940" fill="none" stroke="#ffffff" stroke-width="2.5" rx="6"/>
+                
+                <!-- Vạch giữa sân (Horizontal Center Line) -->
+                <line x1="50" y1="500" x2="750" y2="500" stroke="#ffffff" stroke-width="2.5"/>
+                
+                <!-- Vòng tròn giữa sân (Center Circle) -->
+                <circle cx="400" cy="500" r="90" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+                <circle cx="400" cy="500" r="4" fill="#ffffff"/>
+                
+                <!-- Vòng cấm địa phía trên (Opponent Box) -->
+                <rect x="230" y="30" width="340" height="150" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+                <rect x="310" y="30" width="180" height="60" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <path d="M 330 180 A 70 70 0 0 0 470 180" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="400" cy="130" r="3.5" fill="#ffffff"/>
+                
+                <!-- Vòng cấm địa phía dưới (GK Box) -->
+                <rect x="230" y="820" width="340" height="150" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+                <rect x="310" y="910" width="180" height="60" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <path d="M 330 820 A 70 70 0 0 1 470 820" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="400" cy="870" r="3.5" fill="#ffffff"/>
+                
+                <!-- 4 Góc sân (Corner Arcs) -->
+                <path d="M 50 55 A 25 25 0 0 0 75 30" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <path d="M 725 30 A 25 25 0 0 0 750 55" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <path d="M 50 945 A 25 25 0 0 1 75 970" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <path d="M 725 970 A 25 25 0 0 1 750 945" fill="none" stroke="#ffffff" stroke-width="2"/>
+            </svg>
+
+            <!-- Stadium Light Beams Ambient -->
+            <div class="stadium-lighting-ambient"></div>
+
+            <!-- DYNAMIC 11 PLAYERS ON PITCH (PERFECTLY CENTERED) -->
+            <div id="pitchRowsContainer">
+                <!-- Sẽ được render tự động theo sơ đồ chiến thuật -->
+            </div>
+        </main>
+
+        <!-- BOTTOM SUBSTITUTES DRAWER DOCK (DỰ BỊ) -->
+        <div class="fc-subs-drawer" id="subsDrawer">
+            <div class="fc-subs-cards-row" id="subsCardsRow">
+                <!-- Sẽ render các thẻ dự bị -->
+            </div>
+
+            <div class="fc-auto-sub-toggle-box">
+                <span>Tự Động Thay Cầu Thủ Dự Bị ℹ️</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoSubToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
     </div>
 
-    <div class="card">
-        <p style="margin-top:0">Đã chọn: <b id="count">0</b>/11</p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr><th>Chọn</th><th>Tên</th><th>Vị trí</th><th class="num">OVR</th><th class="num">Thể lực</th><th>Vị trí yêu thích</th></tr>
-                </thead>
-                <tbody>
-                {% for p in players %}
-                <tr>
-                    <td><input type="checkbox" name="starting" value="{{ p.id }}" {{ 'checked' if p.is_starting }} aria-label="Chọn {{ p.name }}"></td>
-                    <td><a href="{{ url_for('player_detail', player_id=p.id) }}">{{ p.name }}</a></td>
-                    <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
-                    <td class="num"><span class="ovr">{{ p.overall }}</span></td>
-                    <td class="num">{{ p.stamina|round(1) }}</td>
-                    <td>{{ (p.preferred_positions or '[]')|replace('[', '')|replace(']', '')|replace('"', '') or '–' }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="actions mt-2">
-            <button type="submit" class="btn primary">Xác nhận đội hình</button>
-            <a href="{{ url_for('dashboard') }}" class="btn secondary">← Quay lại</a>
+    <!-- ==================== FORMATION PICKER MODAL ==================== -->
+    <div class="fc-modal-overlay" id="formationModal">
+        <div class="fc-modal-dialog">
+            <div class="modal-hdr">⚙️ CHỌN SƠ ĐỒ CHIẾN THUẬT</div>
+            <div class="opt-grid">
+                <div class="opt-card" onclick="selectFormation('4-3-3')">4-3-3 (Tấn Công Cánh / Tiki-taka)</div>
+                <div class="opt-card" onclick="selectFormation('4-2-3-1')">4-2-3-1 (Double Pivot & Kiểm Soát)</div>
+                <div class="opt-card" onclick="selectFormation('4-4-2')">4-4-2 (Cân Bằng Truyền Thống)</div>
+                <div class="opt-card" onclick="selectFormation('4-3-2-1')">4-3-2-1 (Cây Thông Ancelotti)</div>
+                <div class="opt-card" onclick="selectFormation('3-4-3')">3-4-3 (Tấn Công Áp Đảo 3 Tiền Đạo)</div>
+                <div class="opt-card" onclick="selectFormation('3-5-2')">3-5-2 (Song Sát & Tiền Vệ Cánh)</div>
+                <div class="opt-card" onclick="selectFormation('5-3-2')">5-3-2 (Phòng Ngự Chiều Sâu 3 CB)</div>
+                <div class="opt-card" onclick="selectFormation('5-4-1')">5-4-1 (Đổ Bê Tông / Xe Bus)</div>
+            </div>
+            <button class="dock-action-btn" style="justify-content:center;" onclick="closeModals()">ĐÓNG</button>
         </div>
     </div>
-</form>
-{% endblock %}
-{% block scripts %}
-<script>
-const boxes = document.querySelectorAll('input[name=starting]');
-const count = document.getElementById('count');
-function upd() { const n = [...boxes].filter(b => b.checked).length; count.textContent = n; count.style.color = n === 11 ? 'var(--accent)' : 'var(--danger)'; }
-boxes.forEach(b => b.addEventListener('change', upd)); upd();
-</script>
-{% endblock %}
+
+    <!-- ==================== TACTICS MODAL ==================== -->
+    <div class="fc-modal-overlay" id="tacticsModal">
+        <div class="fc-modal-dialog">
+            <div class="modal-hdr">📐 LỰA CHỌN ĐẤU PHÁP</div>
+            <div class="opt-grid">
+                <div class="opt-card" onclick="selectTactic('Tan cong')">⚡ Tấn Công Tổng Lực</div>
+                <div class="opt-card" onclick="selectTactic('Can bang')">⚖️ Cân Bằng Nhịp Độ</div>
+                <div class="opt-card" onclick="selectTactic('Phong thu')">🧱 Phòng Ngự Phản Công</div>
+                <div class="opt-card" onclick="selectTactic('Tiki-Taka')">🪄 Kiểm Soát Tiki-Taka</div>
+                <div class="opt-card" onclick="selectTactic('Phan cong')">🚀 Phản Công Chớp Nhoáng</div>
+                <div class="opt-card" onclick="selectTactic('Xe bus')">🚌 Xe Bus 2 Tầng</div>
+            </div>
+            <button class="dock-action-btn" style="justify-content:center;" onclick="closeModals()">ĐÓNG</button>
+        </div>
+    </div>
+
+    <div id="pitchToast"></div>
+
+    <script>
+        let startingPlayers = {{ starting_players | tojson | safe }};
+        let subPlayers = {{ sub_players | tojson | safe }};
+        let allPlayers = {{ enriched_players | tojson | safe }};
+        let currentFormation = "{{ club.formation }}";
+
+        let selectedSwapPlayerId = null;
+
+        const sfxClick = new Audio('/sounds/sfx/Click.wav');
+        const sfxWhistle = new Audio('/sounds/sfx/whistle.wav');
+
+        function playSound(audio) {
+            try { audio.currentTime = 0; audio.play().catch(()=>{}); } catch(e){}
+        }
+
+        function showToast(msg, isSuccess=true) {
+            const t = document.getElementById('pitchToast');
+            t.textContent = msg;
+            t.style.borderColor = isSuccess ? '#10b981' : '#ef4444';
+            t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 3000);
+        }
+
+        // ==================== THUẬT TOÁN XẾP CẦU THỦ ĐÚNG VỊ TRÍ & CÂN BẰNG VÀO GIỮA SÂN ====================
+        function mapLineupToFormation(players, formation) {
+            const slotDefs = {
+                '4-3-3': [
+                    { row: 'FW', slots: ['LW', 'ST', 'RW'] },
+                    { row: 'MF', slots: ['CM', 'CAM', 'CM'] },
+                    { row: 'DF', slots: ['LB', 'CB', 'CB', 'RB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '4-2-3-1': [
+                    { row: 'FW', slots: ['ST'] },
+                    { row: 'AM', slots: ['LW', 'CAM', 'RW'] },
+                    { row: 'DM', slots: ['CDM', 'CDM'] },
+                    { row: 'DF', slots: ['LB', 'CB', 'CB', 'RB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '5-3-2': [
+                    { row: 'FW', slots: ['ST', 'ST'] },
+                    { row: 'MF', slots: ['CM', 'CM', 'CM'] },
+                    { row: 'DF', slots: ['LWB', 'CB', 'CB', 'CB', 'RWB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '4-4-2': [
+                    { row: 'FW', slots: ['ST', 'ST'] },
+                    { row: 'MF', slots: ['LM', 'CM', 'CM', 'RM'] },
+                    { row: 'DF', slots: ['LB', 'CB', 'CB', 'RB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '3-5-2': [
+                    { row: 'FW', slots: ['ST', 'ST'] },
+                    { row: 'MF', slots: ['LM', 'CDM', 'CAM', 'CDM', 'RM'] },
+                    { row: 'DF', slots: ['CB', 'CB', 'CB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '4-3-2-1': [
+                    { row: 'FW', slots: ['ST'] },
+                    { row: 'AM', slots: ['CAM', 'CAM'] },
+                    { row: 'MF', slots: ['CM', 'CDM', 'CM'] },
+                    { row: 'DF', slots: ['LB', 'CB', 'CB', 'RB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '3-4-3': [
+                    { row: 'FW', slots: ['LW', 'ST', 'RW'] },
+                    { row: 'MF', slots: ['LM', 'CM', 'CM', 'RM'] },
+                    { row: 'DF', slots: ['CB', 'CB', 'CB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ],
+                '5-4-1': [
+                    { row: 'FW', slots: ['ST'] },
+                    { row: 'MF', slots: ['LM', 'CM', 'CM', 'RM'] },
+                    { row: 'DF', slots: ['LWB', 'CB', 'CB', 'CB', 'RWB'] },
+                    { row: 'GK', slots: ['GK'] }
+                ]
+            };
+
+            const rows = slotDefs[formation] || slotDefs['4-3-3'];
+            const unassigned = [...players];
+            const assignedRows = [];
+
+            function scoreFit(p, targetPos) {
+                if (p.position === targetPos) return 100;
+                const pos = p.position;
+                const fw = ['ST', 'CF', 'LW', 'RW'];
+                const am = ['CAM', 'LW', 'RW', 'LM', 'RM'];
+                const cm = ['CM', 'CDM', 'CAM', 'LM', 'RM'];
+                const df = ['CB', 'LB', 'RB', 'LWB', 'RWB'];
+
+                if (targetPos === 'GK') return pos === 'GK' ? 100 : 0;
+                if (pos === 'GK') return targetPos === 'GK' ? 100 : 0;
+
+                if (fw.includes(targetPos) && fw.includes(pos)) return 80;
+                if (am.includes(targetPos) && am.includes(pos)) return 80;
+                if (cm.includes(targetPos) && cm.includes(pos)) return 80;
+                if (df.includes(targetPos) && df.includes(pos)) return 80;
+                return 40;
+            }
+
+            rows.forEach(r => {
+                const rowPlayers = [];
+                r.slots.forEach(slotPos => {
+                    let bestIdx = 0;
+                    let bestScore = -1;
+                    for (let i = 0; i < unassigned.length; i++) {
+                        const score = scoreFit(unassigned[i], slotPos);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestIdx = i;
+                        }
+                    }
+                    if (unassigned.length > 0) {
+                        const matched = unassigned.splice(bestIdx, 1)[0];
+                        rowPlayers.push({ posLabel: slotPos, player: matched });
+                    }
+                });
+                assignedRows.push({ rowType: r.row, slots: rowPlayers });
+            });
+
+            return assignedRows;
+        }
+
+        // Bố trí hàng vị trí căn giữa sân chuẩn
+        function renderPitchLineup() {
+            const container = document.getElementById('pitchRowsContainer');
+            container.innerHTML = '';
+
+            const mappedRows = mapLineupToFormation(startingPlayers, currentFormation);
+
+            mappedRows.forEach(row => {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'pitch-formation-row';
+
+                row.slots.forEach(slot => {
+                    const p = slot.player;
+                    const posLabel = slot.posLabel;
+
+                    const slotEl = document.createElement('div');
+                    slotEl.className = `pitch-card-slot ${selectedSwapPlayerId === p.id ? 'active-swap-source' : ''}`;
+                    slotEl.id = `pitch-slot-${p.id}`;
+                    slotEl.onclick = () => handlePitchCardClick(p.id);
+
+                    slotEl.innerHTML = `
+                        <div class="pitch-fut-card ${p.tier}">
+                            <div class="p-top-row">
+                                <div class="p-diamonds">${'💎'.repeat(p.rank_level)}</div>
+                                <div style="text-align:right;">
+                                    <div class="p-ovr">${p.fc_ovr}</div>
+                                    <div class="p-pos">${p.position}</div>
+                                </div>
+                            </div>
+                            <div class="p-avatar-box">
+                                ${p.avatar_svg}
+                            </div>
+                            <div class="p-bottom-banner">
+                                <span class="p-name">${p.last_name}</span>
+                                <div class="p-train-lvl">${p.training_level}</div>
+                            </div>
+                        </div>
+                        <div class="pitch-pos-pill">${posLabel}</div>
+                    `;
+                    rowEl.appendChild(slotEl);
+                });
+
+                container.appendChild(rowEl);
+            });
+        }
+
+        function renderSubstitutes() {
+            const container = document.getElementById('subsCardsRow');
+            let html = '';
+            subPlayers.forEach(p => {
+                html += `
+                    <div class="sub-mini-card ${selectedSwapPlayerId === p.id ? 'active-swap-source' : ''}" 
+                         id="sub-card-${p.id}" 
+                         onclick="handleSubClick(${p.id})">
+                        <div style="font-size:0.75rem; font-weight:900; color:#fff;">${p.fc_ovr}</div>
+                        <div style="width:34px; height:34px;">${p.avatar_svg}</div>
+                        <div style="font-size:0.58rem; font-weight:800; color:#38bdf8;">${p.position}</div>
+                    </div>
+                `;
+            });
+            for (let i = 0; i < Math.max(2, 6 - subPlayers.length); i++) {
+                html += `<div class="sub-empty-slot">+</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // ==================== TƯƠNG TÁC HOÁN ĐỔI VỊ TRÍ CẦU THỦ ====================
+        async function handlePitchCardClick(pid) {
+            playSound(sfxClick);
+            if (!selectedSwapPlayerId) {
+                selectedSwapPlayerId = pid;
+                renderPitchLineup();
+                renderSubstitutes();
+                showToast("Chọn cầu thủ thứ hai trên sân hoặc dự bị để hoán đổi!", true);
+            } else if (selectedSwapPlayerId === pid) {
+                selectedSwapPlayerId = null;
+                renderPitchLineup();
+                renderSubstitutes();
+            } else {
+                await executeSwap(selectedSwapPlayerId, pid);
+                selectedSwapPlayerId = null;
+            }
+        }
+
+        async function handleSubClick(pid) {
+            playSound(sfxClick);
+            if (!selectedSwapPlayerId) {
+                selectedSwapPlayerId = pid;
+                renderPitchLineup();
+                renderSubstitutes();
+                showToast("Chọn cầu thủ đá chính trên sân để thay vào!", true);
+            } else if (selectedSwapPlayerId === pid) {
+                selectedSwapPlayerId = null;
+                renderPitchLineup();
+                renderSubstitutes();
+            } else {
+                await executeSwap(selectedSwapPlayerId, pid);
+                selectedSwapPlayerId = null;
+            }
+        }
+
+        async function executeSwap(p1Id, p2Id) {
+            playSound(sfxWhistle);
+            const res = await fetch('/api/swap_squad_players', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ p1_id: p1Id, p2_id: p2Id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, true);
+                startingPlayers = data.starting_players;
+                subPlayers = data.sub_players;
+                document.getElementById('teamOvrBadge').textContent = data.team_ovr;
+                renderPitchLineup();
+                renderSubstitutes();
+            } else {
+                showToast(data.error, false);
+            }
+        }
+
+        // ==================== TỰ ĐỘNG XÂY DỰNG ĐỘI HÌNH TỐI ƯU ====================
+        async function autoBuildSquad() {
+            playSound(sfxWhistle);
+            const res = await fetch('/api/auto_build_squad', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, true);
+                startingPlayers = data.starting_players;
+                subPlayers = data.sub_players;
+                document.getElementById('teamOvrBadge').textContent = data.team_ovr;
+                renderPitchLineup();
+                renderSubstitutes();
+            } else {
+                showToast(data.error, false);
+            }
+        }
+
+        // ==================== ĐỔI SƠ ĐỒ CHIẾN THUẬT ====================
+        async function selectFormation(fmt) {
+            closeModals();
+            playSound(sfxWhistle);
+            currentFormation = fmt;
+            document.getElementById('currentFormationText').textContent = fmt;
+
+            const res = await fetch('/api/change_formation', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ formation: fmt })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, true);
+                startingPlayers = data.starting_players;
+                subPlayers = data.sub_players;
+                document.getElementById('teamOvrBadge').textContent = data.team_ovr;
+                renderPitchLineup();
+                renderSubstitutes();
+            }
+        }
+
+        function selectTactic(tac) {
+            closeModals();
+            playSound(sfxClick);
+            showToast(`Đã áp dụng đấu pháp: ${tac}`, true);
+        }
+
+        function toggleSubsDrawer() {
+            playSound(sfxClick);
+            document.getElementById('subsDrawer').classList.toggle('collapsed');
+        }
+
+        function saveLineup() {
+            playSound(sfxWhistle);
+            showToast("Đã lưu đội hình ra sân thành công!", true);
+        }
+
+        function openFormationModal() {
+            playSound(sfxClick);
+            document.getElementById('formationModal').style.display = 'flex';
+        }
+        function openTacticsModal() {
+            playSound(sfxClick);
+            document.getElementById('tacticsModal').style.display = 'flex';
+        }
+        function closeModals() {
+            document.querySelectorAll('.fc-modal-overlay').forEach(m => m.style.display = 'none');
+        }
+
+        // Khởi tạo hiển thị
+        renderPitchLineup();
+        renderSubstitutes();
+    </script>
+</body>
+</html>

@@ -1,31 +1,23 @@
-{% extends "base.html" %}
-{% block title %}Lịch thi đấu{% endblock %}
-{% block content %}
-<p><a href="{{ url_for('dashboard') }}">← Bảng điều khiển</a></p>
-<h1>📅 Lịch thi đấu</h1>
-<p class="muted">18 vòng đấu của mùa giải. Vòng lẻ đá sân nhà, vòng chẵn đá sân khách.</p>
-{% set ns = namespace(played=true) %}
-<div class="card">
-    <div class="table-wrap">
-        <table>
-            <thead><tr><th class="num">Vòng</th><th>Chủ nhà</th><th></th><th>Đội khách</th><th>Trạng thái</th></tr></thead>
-            <tbody>
-            {% for r in rounds %}
-            {% if r.current %}{% set ns.played = false %}{% endif %}
-            <tr class="{{ 'me' if r.current }}">
-                <td class="num">{{ r.round }}</td>
-                <td>{{ r.home }}</td>
-                <td class="muted center">vs</td>
-                <td>{{ r.away }}</td>
-                <td>
-                    {% if r.current %}<a class="btn primary small" href="{{ url_for('play_match') }}">▶️ Vòng kế tiếp</a>
-                    {% elif ns.played %}<span class="badge win">Đã đá</span>
-                    {% else %}<span class="badge">Sắp tới</span>{% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Lịch thi đấu mùa giải</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>.fixture { display:flex; justify-content:space-between; align-items:center; gap:1rem; text-align:left; } .fixture.current { border:2px solid #00b140; } .fixture .round-label { color:#fbbf24; font-weight:bold; min-width:75px; }</style>
+</head>
+<body>
+    <div class="container">
+        <h2>📅 Lịch Thi Đấu Mùa Giải</h2>
+        <div class="info">Lịch của CLB bạn gồm 18 vòng. Vòng tiếp theo được viền xanh.</div>
+        {% for r in rounds %}
+        <div class="info fixture {% if r.current %}current{% endif %}">
+            <span class="round-label">Vòng {{ r.round }}</span>
+            <strong>{{ r.home }}</strong><span>⚽ VS ⚽</span><strong>{{ r.away }}</strong>
+            {% if r.current %}<span>▶ Sắp diễn ra</span>{% endif %}
+        </div>
+        {% endfor %}
+        <a href="{{ url_for('dashboard') }}" class="btn secondary">← Quay lại Dashboard</a>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>

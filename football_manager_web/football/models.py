@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
 db = SQLAlchemy()
-
 
 class Club(db.Model):
     __tablename__ = 'clubs'
@@ -17,7 +17,7 @@ class Club(db.Model):
     round = db.Column(db.Integer, default=0)
     formation = db.Column(db.String(10), default='4-3-3')
     tactic = db.Column(db.String(20), default='Can bang')
-    sponsor_name = db.Column(db.String(100), default='VietinBank Sport')
+    sponsor_name = db.Column(db.String(100), default="VietinBank Sport")
     sponsor_weekly = db.Column(db.Integer, default=250000)
     sponsor_bonus = db.Column(db.Integer, default=150000)
     trophies = db.Column(db.Text, default='[]')
@@ -25,7 +25,6 @@ class Club(db.Model):
     coach_id = db.Column(db.Integer, db.ForeignKey('coaches.id'))
     coach = db.relationship('Coach', backref='clubs', lazy=True)
     players = db.relationship('Player', backref='club', lazy=True)
-
 
 class YouthPlayer(db.Model):
     __tablename__ = 'youth_players'
@@ -38,19 +37,25 @@ class YouthPlayer(db.Model):
     speed = db.Column(db.Integer, default=50)
     overall = db.Column(db.Float, default=50.0)
     potential = db.Column(db.Integer, default=85)
-    scout_origin = db.Column(db.String(100), default='Lò đào tạo CLB')
+    scout_origin = db.Column(db.String(100), default="Lò đào tạo CLB")
     training_points = db.Column(db.Integer, default=0)
     club_id = db.Column(db.Integer, db.ForeignKey('clubs.id'), nullable=False)
     club = db.relationship('Club', backref=db.backref('youth_players', lazy=True))
 
     def to_dict(self):
         return {
-            'id': self.id, 'name': self.name, 'position': self.position, 'age': self.age,
-            'attack': self.attack, 'defense': self.defense, 'speed': self.speed,
-            'overall': self.overall, 'potential': self.potential,
-            'scout_origin': self.scout_origin, 'training_points': self.training_points,
+            "id": self.id,
+            "name": self.name,
+            "position": self.position,
+            "age": self.age,
+            "attack": self.attack,
+            "defense": self.defense,
+            "speed": self.speed,
+            "overall": self.overall,
+            "potential": self.potential,
+            "scout_origin": self.scout_origin,
+            "training_points": self.training_points
         }
-
 
 class Player(db.Model):
     __tablename__ = 'players'
@@ -80,34 +85,44 @@ class Player(db.Model):
     age = db.Column(db.Integer, default=24)
     height = db.Column(db.Integer, default=178)
     weight = db.Column(db.Integer, default=72)
-    nationality = db.Column(db.String(50), default='Việt Nam')
+    nationality = db.Column(db.String(50), default="Việt Nam")
     skill_moves = db.Column(db.Integer, default=4)
     weak_foot = db.Column(db.Integer, default=4)
-    playstyle = db.Column(db.String(100), default='Rê bóng thần tốc')
+    playstyle = db.Column(db.String(100), default="Rê bóng thần tốc")
     club_id = db.Column(db.Integer, db.ForeignKey('clubs.id'), nullable=False)
 
     def to_dict(self):
         return {
-            'id': self.id, 'name': self.name, 'position': self.position,
-            'attack': self.attack, 'defense': self.defense, 'speed': self.speed,
-            'overall': self.overall, 'stamina': self.stamina, 'goals': self.goals,
-            'assists': self.assists, 'yellow_cards': self.yellow_cards,
-            'red_cards': self.red_cards, 'matches_played': self.matches_played,
-            'experience': self.experience, 'preferred_positions': self.preferred_positions,
-            'is_starting': self.is_starting, 'is_substitute': self.is_substitute,
-            'contract_wage': self.contract_wage, 'market_value': self.market_value,
-            'training_level': getattr(self, 'training_level', 10),
-            'rank_level': getattr(self, 'rank_level', 1),
-            'skill_boost': getattr(self, 'skill_boost', 2),
-            'age': getattr(self, 'age', 24),
-            'height': getattr(self, 'height', 178),
-            'weight': getattr(self, 'weight', 72),
-            'nationality': getattr(self, 'nationality', 'Việt Nam'),
-            'skill_moves': getattr(self, 'skill_moves', 4),
-            'weak_foot': getattr(self, 'weak_foot', 4),
-            'playstyle': getattr(self, 'playstyle', 'Rê bóng thần tốc'),
+            "id": self.id,
+            "name": self.name,
+            "position": self.position,
+            "attack": self.attack,
+            "defense": self.defense,
+            "speed": self.speed,
+            "overall": self.overall,
+            "stamina": self.stamina,
+            "goals": self.goals,
+            "assists": self.assists,
+            "yellow_cards": self.yellow_cards,
+            "red_cards": self.red_cards,
+            "matches_played": self.matches_played,
+            "experience": self.experience,
+            "preferred_positions": self.preferred_positions,
+            "is_starting": self.is_starting,
+            "is_substitute": self.is_substitute,
+            "contract_wage": self.contract_wage,
+            "market_value": self.market_value,
+            "training_level": getattr(self, 'training_level', 10),
+            "rank_level": getattr(self, 'rank_level', 1),
+            "skill_boost": getattr(self, 'skill_boost', 2),
+            "age": getattr(self, 'age', 24),
+            "height": getattr(self, 'height', 178),
+            "weight": getattr(self, 'weight', 72),
+            "nationality": getattr(self, 'nationality', "Việt Nam"),
+            "skill_moves": getattr(self, 'skill_moves', 4),
+            "weak_foot": getattr(self, 'weak_foot', 4),
+            "playstyle": getattr(self, 'playstyle', "Rê bóng thần tốc")
         }
-
 
 class Coach(db.Model):
     __tablename__ = 'coaches'
@@ -117,7 +132,6 @@ class Coach(db.Model):
     nationality = db.Column(db.String(50))
     tactic_preference = db.Column(db.String(20))
     image_filename = db.Column(db.String(100), nullable=True)
-
 
 class MatchHistory(db.Model):
     __tablename__ = 'match_history'
@@ -131,7 +145,6 @@ class MatchHistory(db.Model):
     round = db.Column(db.Integer)
     date = db.Column(db.DateTime, default=datetime.utcnow)
     events = db.Column(db.Text)
-
 
 class LeagueStanding(db.Model):
     __tablename__ = 'league_standings'

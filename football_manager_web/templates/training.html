@@ -1,44 +1,240 @@
-{% extends "base.html" %}
-{% block title %}Tập luyện{% endblock %}
-{% block content %}
-<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
-<h1 class="mt-1">🏋️ Trung Tâm Tập Luyện</h1>
-<p class="muted">Mỗi buổi tập tốn <b class="gold">$100,000</b>, tăng <b>+2</b> điểm cho kỹ năng được chọn (tối đa 99) và +10 kinh nghiệm.
-    Ngân sách hiện có: <b class="gold">${{ "{:,}".format(club.money) }}</b></p>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trung Tâm Huấn Luyện - {{ club.name }}</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: #131d31;
+            --primary: #10b981;
+            --accent: #38bdf8;
+            --danger: #ef4444;
+            --gold: #f59e0b;
+            --border: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-{% if message %}<div class="alert success">✅ {{ message }}</div>{% endif %}
-{% if error %}<div class="alert error">⚠️ {{ error }}</div>{% endif %}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1050px; margin: 0 auto; }
 
-<div class="card table-wrap">
-    <table>
-        <thead><tr>
-            <th>Tên</th><th>VT</th><th class="num">OVR</th><th>Tấn công</th><th>Phòng thủ</th><th>Tốc độ</th>
-            <th class="num">Kinh nghiệm</th><th>Tập luyện</th>
-        </tr></thead>
-        <tbody>
+        /* Header */
+        .page-header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        .header-title h1 { font-size: 1.6rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+        .info-pills { display: flex; gap: 12px; }
+        .info-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            border-radius: 12px;
+            text-align: right;
+        }
+        .info-pill span { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; }
+        .info-pill strong { font-size: 1.2rem; }
+
+        /* Thông báo */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            animation: fadeIn 0.3s ease;
+        }
+        .alert.success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--primary); color: #6ee7b7; }
+        .alert.error { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); color: #fca5a5; }
+
+        /* Danh sách cầu thủ huấn luyện */
+        .training-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .train-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+        .train-card:hover {
+            transform: translateY(-3px);
+            border-color: #6366f1;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .pos-badge {
+            background: #334155;
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .ovr-badge {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: var(--gold);
+        }
+        .p-name { font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 12px; }
+
+        /* Chỉ số hiện tại */
+        .stats-box {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .stat-item span { display: block; font-size: 0.72rem; color: var(--text-muted); }
+        .stat-item strong { font-size: 1.1rem; }
+
+        /* Các nút tập luyện */
+        .train-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .btn-focus {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 8px 4px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .btn-focus:hover {
+            background: #4f46e5;
+            border-color: #6366f1;
+        }
+        .btn-focus.att:hover { background: #dc2626; border-color: #ef4444; }
+        .btn-focus.def:hover { background: #2563eb; border-color: #3b82f6; }
+        .btn-focus.spd:hover { background: #059669; border-color: #10b981; }
+
+        /* Footer */
+        .footer-nav { margin-top: 10px; }
+        .btn-back {
+            background: #334155;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-back:hover { background: #475569; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Header & Chi phí -->
+    <div class="page-header">
+        <div class="header-title">
+            <h1>🏋️ Trung Tâm Huấn Luyện</h1>
+            <p>Rèn giũa kỹ năng, tăng <strong>+2 điểm</strong> chỉ số cho cầu thủ sau mỗi buổi tập.</p>
+        </div>
+        <div class="info-pills">
+            <div class="info-pill">
+                <span>Chi phí / Buổi tập</span>
+                <strong style="color: var(--gold);">$100,000</strong>
+            </div>
+            <div class="info-pill">
+                <span>Ngân sách</span>
+                <strong style="color: #4ade80;">${{ "{:,}".format(club.money) }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thông báo kết quả tập luyện -->
+    {% if message %}
+    <div class="alert success">🎉 {{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="alert error">❌ {{ error }}</div>
+    {% endif %}
+
+    <!-- Lưới cầu thủ huấn luyện -->
+    <div class="training-grid">
         {% for p in players %}
-        <tr>
-            <td><b>{{ p.name }}</b></td>
-            <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
-            <td class="num"><span class="ovr {{ 'gold' if p.overall >= 85 }}">{{ p.overall }}</span></td>
-            {% for v in [p.attack, p.defense, p.speed] %}
-            <td><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:{{ v }}%"></i></div><span>{{ v }}</span></div></td>
-            {% endfor %}
-            <td class="num">{{ p.experience or 0 }}</td>
-            <td>
-                <div class="actions">
-                    {% for focus, label in [('attack', '⚔️ ATK'), ('defense', '🛡️ DEF'), ('speed', '⚡ SPD')] %}
-                    <form method="POST">
-                        <input type="hidden" name="player_id" value="{{ p.id }}">
-                        <input type="hidden" name="focus" value="{{ focus }}">
-                        <button class="btn small" type="submit" {{ 'disabled' if p[focus] >= 99 }}>{{ label }}</button>
-                    </form>
-                    {% endfor %}
+        <div class="train-card">
+            <div>
+                <div class="card-header">
+                    <span class="pos-badge">{{ p.position }}</span>
+                    <span class="ovr-badge">{{ p.overall }} OVR</span>
                 </div>
-            </td>
-        </tr>
+                <div class="p-name">{{ p.name }}</div>
+
+                <div class="stats-box">
+                    <div class="stat-item">
+                        <span>TẤN CÔNG</span>
+                        <strong style="color: #f87171;">{{ p.attack }}</strong>
+                    </div>
+                    <div class="stat-item">
+                        <span>PHÒNG THỦ</span>
+                        <strong style="color: #60a5fa;">{{ p.defense }}</strong>
+                    </div>
+                    <div class="stat-item">
+                        <span>TỐC ĐỘ</span>
+                        <strong style="color: #34d399;">{{ p.speed }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form chọn chuyên đề tập -->
+            <form method="POST" style="margin: 0;">
+                <input type="hidden" name="player_id" value="{{ p.id }}">
+                <div class="train-actions">
+                    <button type="submit" name="focus" value="attack" class="btn-focus att" title="Tăng +2 Tấn công">⚔️ Tấn công</button>
+                    <button type="submit" name="focus" value="defense" class="btn-focus def" title="Tăng +2 Phòng thủ">🛡️ Phòng thủ</button>
+                    <button type="submit" name="focus" value="speed" class="btn-focus spd" title="Tăng +2 Tốc độ">⚡ Tốc độ</button>
+                </div>
+            </form>
+        </div>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
+
+    <!-- Nút quay lại Dashboard -->
+    <div class="footer-nav">
+        <a href="{{ url_for('dashboard') }}" class="btn-back">⬅️ Quay lại Bảng điều khiển</a>
+    </div>
+
 </div>
-{% endblock %}
+
+</body>
+</html>

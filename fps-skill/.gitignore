@@ -1,0 +1,21 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Web build cache
+build/web-cache/
+web-cache/
+*.tmpl
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*~

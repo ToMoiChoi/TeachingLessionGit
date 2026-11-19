@@ -1,42 +1,77 @@
-{% extends "base.html" %}
-{% block title %}Bảng xếp hạng{% endblock %}
-{% block content %}
-<h1>🏆 Bảng xếp hạng</h1>
-<p class="muted">{{ {'Hang 1': 'Hạng 1 (V-League 1)', 'Hang 2': 'Hạng 2'}.get(club.league, club.league) }} · Mùa {{ club.season }} ·
-    {% if club.league == 'Hang 2' %}Top 2 được thăng hạng{% else %}Đội đứng đầu sẽ vô địch{% endif %}</p>
-<div class="card">
-    <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th class="num">#</th><th>Đội</th><th class="num">Trận</th><th class="num">T</th><th class="num">H</th>
-                <th class="num">B</th><th class="num">BT</th><th class="num">BB</th><th class="num">HS</th><th class="num">Điểm</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for t in teams %}
-            {% set promo = (club.league == 'Hang 2' and loop.index <= 2) or (club.league != 'Hang 2' and loop.index == 1) %}
-            <tr class="{{ 'me' if t.is_player }} {{ 'promo' if promo }} {{ 'releg' if loop.revindex <= 2 }}">
-                <td class="num">{{ loop.index }}</td>
-                <td>{{ '⭐ ' if t.is_player }}{{ t.name }}</td>
-                <td class="num">{{ t.played }}</td>
-                <td class="num">{{ t.wins }}</td>
-                <td class="num">{{ t.draws }}</td>
-                <td class="num">{{ t.losses }}</td>
-                <td class="num">{{ t.goals_for }}</td>
-                <td class="num">{{ t.goals_against }}</td>
-                <td class="num">{{ '%+d'|format(t.gd) }}</td>
-                <td class="num"><b>{{ t.points }}</b></td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bảng Xếp Hạng - {{ club.league }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background-color: #0d1117; color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; margin: 0; }
+    .table-container { max-width: 900px; margin: 0 auto; background: #161b22; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    h2 { margin-top: 0; display: flex; align-items: center; gap: 10px; color: #ffd700; font-size: 22px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    th, td { padding: 12px 14px; text-align: center; }
+    th { background: #21262d; color: #8b949e; font-weight: 700; font-size: 13px; text-transform: uppercase; }
+    th.team-col, td.team-col { text-align: left; }
+    tr { border-bottom: 1px solid rgba(255,255,255,0.05); }
+    /* HIGHLIGHT HÀNG CỦA NGƯỜI CHƠI */
+    .user-row { background: rgba(59, 130, 246, 0.2) !important; border: 1px solid #3b82f6; font-weight: 800; color: #60a5fa; }
+    .top-rank { color: #ffd700; font-weight: 800; }
+    .badge-promo { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .badge-releg { background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .btn-bar { display: flex; justify-content: space-between; margin-top: 20px; }
+    .btn { background: #21262d; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    .btn:hover { background: #30363d; }
+  </style>
+</head>
+<body>
+  <div class="table-container">
+    <h2>🏆 BẢNG XẾP HẠNG - {{ club.league|upper }}</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50px;">#</th>
+          <th class="team-col">ĐỘI BÓNG</th>
+          <th>TRẬN</th>
+          <th>T</th>
+          <th>H</th>
+          <th>B</th>
+          <th>BT</th>
+          <th>BB</th>
+          <th>HS</th>
+          <th style="color: #ffd700;">ĐIỂM</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teams %}
+        <tr class="{% if t.is_player or t.is_user %}user-row{% endif %}">
+          <td class="{% if loop.index <= 2 %}top-rank{% endif %}">
+            {{ loop.index }}
+            {% if loop.index <= 2 %}<span class="badge-promo">▲</span>{% elif loop.index >= 9 %}<span class="badge-releg">▼</span>{% endif %}
+          </td>
+          <td class="team-col">
+            <b>{{ t.name }}</b>
+            {% if t.is_player or t.is_user %} <span style="color: #ffd700;">(Đội của bạn)</span>{% endif %}
+          </td>
+          <td>{{ t.played }}</td>
+          <td>{{ t.wins }}</td>
+          <td>{{ t.draws }}</td>
+          <td>{{ t.losses }}</td>
+          <td>{{ t.goals_for }}</td>
+          <td>{{ t.goals_against }}</td>
+          <td style="color: {% if t.gd > 0 %}#10b981{% elif t.gd < 0 %}#ef4444{% else %}#8b949e{% endif %}; font-weight: 700;">
+            {% if t.gd > 0 %}+{% endif %}{{ t.gd }}
+          </td>
+          <td style="color: #ffd700; font-weight: 900; font-size: 15px;">{{ t.points }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="btn-bar">
+      <a href="{{ url_for('dashboard') }}" class="btn">⬅️ Quay lại Dashboard</a>
+      <a href="{{ url_for('schedule') }}" class="btn">📅 Xem Lịch Thi Đấu</a>
     </div>
-    <p class="muted mt-2" style="font-size:13px">T: thắng · H: hòa · B: bại · BT/BB: bàn thắng/bàn bại · HS: hiệu số.
-        Viền xanh: suất thăng hạng/vô địch · viền đỏ: nhóm cuối bảng.</p>
-</div>
-<div class="actions mt-2">
-    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Đá vòng tiếp theo</a>
-    <a class="btn" href="{{ url_for('schedule') }}">📅 Lịch thi đấu</a>
-</div>
-{% endblock %}
+  </div>
+</body>
+</html>

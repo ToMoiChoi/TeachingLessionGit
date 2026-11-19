@@ -1,74 +1,109 @@
-{% extends "base.html" %}
-{% block title %}Vòng {{ round }}{% endblock %}
-{% block content %}
-<h1>▶️ Vòng {{ round }} · Chuẩn bị trận đấu</h1>
-
-<div class="card">
-    <div class="scoreboard">
-        <div class="team">{{ club.name }}<div class="muted" style="font-weight:400;font-size:13px">Sơ đồ {{ formation }}</div></div>
-        <div class="score">VS</div>
-        <div class="team">{{ opponent.name }}<div class="muted" style="font-weight:400;font-size:13px">Sơ đồ {{ opponent.formation }} ·
-            {{ {'Tan cong': 'Tấn công', 'Phong thu': 'Phòng thủ'}.get(opponent.tactic, 'Cân bằng') }}</div></div>
-    </div>
-</div>
-
-<div class="grid-2 mt-2">
-    <div class="card">
-        <h3>👕 Đội hình xuất phát của bạn</h3>
-        {% if starting_players|length < 11 %}
-        <div class="alert error">Bạn mới có {{ starting_players|length }}/11 cầu thủ đá chính.
-            <a href="{{ url_for('select_xi') }}">Chọn đội hình →</a></div>
-        {% endif %}
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Vị trí</th><th>Cầu thủ</th><th class="num">OVR</th><th>Thể lực</th></tr></thead>
-                <tbody>
-                {% for p in starting_players %}
-                <tr>
-                    <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
-                    <td>{{ p.name }}</td>
-                    <td class="num">{{ p.overall|round(1) }}</td>
-                    <td><div class="bar {{ 'low' if p.stamina < 50 else ('warn' if p.stamina < 65 else '') }}"><i style="width:{{ p.stamina|round|int }}%"></i></div></td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Chuẩn bị trận đấu - {{ club.name }} vs {{ opponent.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .lineup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .team-box {
+            background-color: #0f172a;
+            border-radius: 10px;
+            padding: 1.2rem;
+            border: 1px solid #334155;
+        }
+        .team-box h3 {
+            margin-bottom: 0.5rem;
+            color: #38bdf8;
+            border-bottom: 2px solid #00b140;
+            padding-bottom: 0.5rem;
+        }
+        .team-box.away h3 {
+            color: #f59e0b;
+            border-bottom-color: #f59e0b;
+        }
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.35rem 0.6rem;
+            border-bottom: 1px solid #1e293b;
+            font-size: 0.95rem;
+        }
+        .player-row:last-child {
+            border-bottom: none;
+        }
+        .pos-tag {
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #2a2d35;
+            min-width: 40px;
+            text-align: center;
+        }
+        .gk { color: #f59e0b; }
+        .df { color: #38bdf8; }
+        .mf { color: #10b981; }
+        .fw { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>⚽ Vòng {{ round }}/18: {{ club.name }} vs {{ opponent.name }}</h2>
+        <div class="info">
+            <p>Đối chiếu cấu trúc đội hình và thiết lập chiến thuật tiếp cận trận đấu:</p>
         </div>
-        <p class="muted mt-1">Trước trận mỗi cầu thủ được hồi +20 thể lực.</p>
-    </div>
 
-    <div class="card">
-        <h3>🛡️ Đội hình đối thủ</h3>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Vị trí</th><th>Cầu thủ</th><th class="num">OVR</th></tr></thead>
-                <tbody>
-                {% for p in opponent.players %}
-                <tr>
-                    <td><span class="badge {{ 'gk' if p.position == 'GK' else 'pos' }}">{{ p.position }}</span></td>
-                    <td>{{ p.name }}</td>
-                    <td class="num">{{ p.overall }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+        <div class="lineup-grid">
+            <!-- ĐỘI NHÀ -->
+            <div class="team-box">
+                <h3>🏠 {{ club.name }} (Sơ đồ: {{ formation }})</h3>
+                <div class="player-list">
+                    {% for p in starting_players %}
+                    <div class="player-row">
+                        <span>
+                            <span class="pos-tag {% if 'GK' in p.position %}gk{% elif 'B' in p.position %}df{% elif 'M' in p.position %}mf{% else %}fw{% endif %}">{{ p.position }}</span>
+                            <strong>{{ p.name }}</strong>
+                        </span>
+                        <span>OVR: {{ p.overall }} | Thể lực: {{ p.stamina|round(1) }}%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ĐỐI THỦ -->
+            <div class="team-box away">
+                <h3>✈️ {{ opponent.name }} (Sơ đồ: {{ opponent.formation }})</h3>
+                <div class="player-list">
+                    {% for p in opponent.players %}
+                    <div class="player-row">
+                        <span>
+                            <span class="pos-tag {% if 'GK' in p.position %}gk{% elif 'B' in p.position %}df{% elif 'M' in p.position %}mf{% else %}fw{% endif %}">{{ p.position }}</span>
+                            <strong>{{ p.name }}</strong>
+                        </span>
+                        <span>OVR: {{ p.overall }} | Thể lực: 100%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-<form method="POST" action="{{ url_for('play_match') }}" class="card mt-2">
-    <div class="form-group">
-        <label for="tactic">📋 Chiến thuật trận này</label>
-        <select name="tactic" id="tactic">
-            <option value="Can bang" {{ 'selected' if club.tactic == 'Can bang' }}>⚖️ Cân bằng</option>
-            <option value="Tan cong" {{ 'selected' if club.tactic == 'Tan cong' }}>⚔️ Tấn công (tấn công +15%, phòng thủ −10%, mất sức nhanh hơn)</option>
-            <option value="Phong thu" {{ 'selected' if club.tactic == 'Phong thu' }}>🛡️ Phòng thủ (phòng thủ +20%, tấn công −15%)</option>
-        </select>
+        <form method="POST">
+            <div class="form-group">
+                <label>Chiến thuật tiếp cận trận đấu của bạn:</label>
+                <select name="tactic">
+                    <option value="Can bang" {% if club.tactic == 'Can bang' %}selected{% endif %}>Cân bằng (Kiểm soát nhịp độ)</option>
+                    <option value="Tan cong" {% if club.tactic == 'Tan cong' %}selected{% endif %}>Tấn công tổng lực (+15% Công, -15% Thủ)</option>
+                    <option value="Phong thu" {% if club.tactic == 'Phong thu' %}selected{% endif %}>Phòng ngự phản công (+15% Thủ, -15% Công)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn primary">Bắt đầu trận đấu ngay!</button>
+            <a href="{{ url_for('dashboard') }}" class="btn secondary mt-2">← Quay lại Dashboard</a>
+        </form>
     </div>
-    <div class="actions">
-        <button type="submit" class="btn primary">⚽ Bắt đầu trận đấu</button>
-        <a class="btn secondary" href="{{ url_for('select_xi') }}">📌 Đổi đội hình</a>
-        <a class="btn secondary" href="{{ url_for('dashboard') }}">← Quay lại</a>
-    </div>
-</form>
-{% endblock %}
+</body>
+</html>

@@ -1,6 +1,5 @@
 import math
 import pygame
-from font_vn import get_font
 from graphics.weapon_skins import get_viewmodel_skin
 
 
@@ -17,7 +16,7 @@ class GameWeaponView:
         self.screen = screen
         self.width = width
         self.height = height
-        self.font_small = get_font(22)
+        self.font_small = pygame.font.SysFont("Arial", 22)
 
         # Điểm xuất phát tia đạn mặc định. Có thể chỉnh để khớp đầu nòng skin.
         self.muzzle_x = width // 2 + 80

@@ -1,98 +1,511 @@
-{% extends "base.html" %}
-{% block title %}Lò đào tạo trẻ{% endblock %}
-{% block content %}
-<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
-<h1 class="mt-1">🌱 Học Viện Đào Tạo Trẻ</h1>
-<p class="muted">Cử tuyển trạch viên đi khắp thế giới để tìm thần đồng, huấn luyện các em rồi đôn lên Đội 1.</p>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Học Viện Đào Tạo Trẻ & Săn Thần Đồng - {{ club.name }}</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --bg-dark: #090d16;
+            --card-bg: #131b2e;
+            --card-border: #24324f;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --gold: #f59e0b;
+            --accent: #38bdf8;
+            --danger: #ef4444;
+            --purple: #a855f7;
+        }
 
-{% if message %}<div class="alert success">✅ {{ message }}</div>{% endif %}
-{% if error %}<div class="alert error">⚠️ {{ error }}</div>{% endif %}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 18px;
+        }
+        .container { max-width: 1240px; margin: 0 auto; }
 
-<h2 class="mt-2">🔭 Cử tuyển trạch viên</h2>
-{% set hubs = [
-    ('vietnam', '🇻🇳', 'Học Viện Trẻ Việt Nam', 150000, '72–88', 'Học Viện JMG / PVF', 'Chi phí thấp, tài năng nội địa.'),
-    ('africa', '🌍', 'Học Viện Thể Lực Châu Phi', 300000, '76–92', 'Right to Dream / ASEC', 'Cầu thủ được cộng thêm +10 tốc độ.'),
-    ('south_america', '🌎', 'Lò Đào Tạo Nam Mỹ', 450000, '82–95', 'Santos / Boca Juniors', 'Cầu thủ được cộng thêm +6 tấn công.'),
-    ('europe', '🇪🇺', 'Lò Đào Tạo Châu Âu (Wonderkids)', 850000, '88–99', 'La Masia / Carrington / Ajax', 'Tiềm năng cao nhất, giá đắt nhất.'),
-] %}
-<div class="grid">
-    {% for key, flag, name, cost, pot, origin, note in hubs %}
-    <form class="card" method="POST" action="{{ url_for('scout_wonderkids') }}">
-        <input type="hidden" name="region" value="{{ key }}">
-        <h3>{{ flag }} {{ name }}</h3>
-        <p class="muted" style="margin:0 0 8px">{{ origin }}</p>
-        <p style="margin:0 0 4px">Tiềm năng: <b class="gold">{{ pot }}</b></p>
-        <p class="muted" style="margin:0 0 12px;font-size:13px">{{ note }}</p>
-        <button class="btn primary block" type="submit" {{ 'disabled' if club.money < cost }}>
-            Cử Scout (${{ "{:,}".format(cost) }})
-        </button>
-    </form>
-    {% endfor %}
-</div>
+        /* HEADER */
+        .page-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+            border: 1px solid #4338ca;
+            border-radius: 16px;
+            padding: 22px 26px;
+            margin-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 10px 25px rgba(67, 56, 202, 0.25);
+        }
+        .page-title h1 { font-size: 1.8rem; color: #a5b4fc; display: flex; align-items: center; gap: 10px; }
+        .page-title p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
+        .budget-badge {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--primary);
+            padding: 10px 18px;
+            border-radius: 12px;
+            text-align: right;
+        }
+        .budget-badge span { font-size: 0.78rem; color: #a7f3d0; text-transform: uppercase; display: block; }
+        .budget-badge strong { font-size: 1.3rem; color: #34d399; }
 
-{% if scout_results %}
-<h2 class="mt-3">✨ Tài năng vừa phát hiện</h2>
-<div class="grid">
-    {% for t in scout_results %}
-    <div class="card">
-        <div class="actions" style="justify-content:space-between;align-items:center">
-            <span class="badge {{ 'gk' if t.position == 'GK' else 'pos' }}">{{ t.position }}</span>
-            <span class="ovr">{{ t.overall }}</span>
+        /* ALERT MESSAGES */
+        .alert-box {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-success { background: rgba(16, 185, 129, 0.18); border: 1px solid var(--primary); color: #34d399; }
+        .alert-error { background: rgba(239, 68, 68, 0.18); border: 1px solid var(--danger); color: #f87171; }
+
+        /* SECTION TITLE */
+        .section-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* SCOUTING HUBS GRID */
+        .scout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .scout-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .scout-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 8px 20px rgba(56, 189, 248, 0.15);
+        }
+        .scout-flag { font-size: 2.2rem; margin-bottom: 8px; }
+        .scout-name { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .scout-region { font-size: 0.85rem; color: var(--accent); margin-bottom: 10px; font-weight: 600; }
+        .scout-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px; }
+        .scout-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            font-size: 0.82rem;
+        }
+        .scout-meta span { color: var(--text-muted); }
+        .scout-meta strong { color: var(--gold); }
+
+        /* DISCOVERED TALENTS MODAL / SECTION */
+        .discovered-section {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 2px dashed var(--gold);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        /* YOUTH ROSTER GRID */
+        .youth-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .player-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .player-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.15);
+        }
+        .player-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .player-pos-badge {
+            background: #2563eb;
+            color: #fff;
+            font-weight: 800;
+            font-size: 0.82rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .player-pos-badge.att { background: #e11d48; }
+        .player-pos-badge.mid { background: #d97706; }
+        .player-pos-badge.def { background: #059669; }
+        .player-pos-badge.gk { background: #7c3aed; }
+        .player-ovr {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--accent);
+        }
+        .player-name { font-size: 1.05rem; font-weight: 700; color: #fff; }
+        .player-origin { font-size: 0.78rem; color: var(--text-muted); }
+        .potential-stars {
+            color: var(--gold);
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+        }
+
+        /* STATS BARS */
+        .stats-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 6px 0;
+        }
+        .stat-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+        .stat-bar-track {
+            flex: 1;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 3px;
+            margin: 0 8px;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #38bdf8, #10b981);
+        }
+
+        /* BUTTONS */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); transform: scale(1.02); }
+        .btn-gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+        .btn-gold:hover { opacity: 0.92; transform: scale(1.02); }
+        .btn-purple { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; }
+        .btn-purple:hover { opacity: 0.92; transform: scale(1.02); }
+        .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: #fff; }
+        .btn-secondary { background: #334155; color: #fff; }
+        .btn-secondary:hover { background: #475569; }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .empty-roster {
+            background: var(--card-bg);
+            border: 1px dashed var(--card-border);
+            border-radius: 14px;
+            padding: 35px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .nav-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+        .nav-back:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <a href="{{ url_for('dashboard') }}" class="nav-back">← Quay lại Bảng điều khiển</a>
+
+    <!-- HEADER -->
+    <div class="page-header">
+        <div class="page-title">
+            <h1>⭐ Học Viện Đào Tạo Trẻ & Tuyển Trạch Wonderkids</h1>
+            <p>Săn lùng các thần đồng tương lai từ khắp nơi trên thế giới, đào tạo và đôn lên Đội 1!</p>
         </div>
-        <h3 class="mt-1">{{ t.name }}</h3>
-        <p class="muted" style="margin:0 0 8px;font-size:13px">{{ t.age }} tuổi · {{ t.scout_origin }}</p>
-        <p style="margin:0 0 8px">Tiềm năng: <b class="gold">{{ t.potential }}</b></p>
-        <p class="muted" style="margin:0 0 12px;font-size:13px">ATK {{ t.attack }} · DEF {{ t.defense }} · SPD {{ t.speed }}</p>
-        <form method="POST" action="{{ url_for('sign_youth_player') }}">
-            <input type="hidden" name="talent_index" value="{{ loop.index0 }}">
-            <button class="btn gold block" type="submit">✍️ Ký hợp đồng đào tạo</button>
-        </form>
+        <div class="budget-badge">
+            <span>Ngân Sách CLB</span>
+            <strong>${{ "{:,}".format(club.money) }}</strong>
+        </div>
     </div>
-    {% endfor %}
-</div>
-{% endif %}
 
-<h2 class="mt-3">🎓 Học viên của CLB ({{ youth_players|length }})</h2>
-{% if youth_players %}
-<div class="card table-wrap">
-    <table>
-        <thead><tr>
-            <th>Tên</th><th>VT</th><th class="num">Tuổi</th><th class="num">OVR</th><th class="num">Tiềm năng</th>
-            <th class="num">ATK</th><th class="num">DEF</th><th class="num">SPD</th><th>Nguồn</th><th></th>
-        </tr></thead>
-        <tbody>
-        {% for yp in youth_players %}
-        <tr>
-            <td><b>{{ yp.name }}</b></td>
-            <td><span class="badge {{ 'gk' if yp.position == 'GK' else 'pos' }}">{{ yp.position }}</span></td>
-            <td class="num">{{ yp.age }}</td>
-            <td class="num"><span class="ovr">{{ yp.overall }}</span></td>
-            <td class="num gold">{{ yp.potential }}</td>
-            <td class="num">{{ yp.attack }}</td>
-            <td class="num">{{ yp.defense }}</td>
-            <td class="num">{{ yp.speed }}</td>
-            <td class="muted">{{ yp.scout_origin }}</td>
-            <td>
-                <div class="actions">
-                    <form method="POST" action="{{ url_for('train_youth_player') }}">
-                        <input type="hidden" name="youth_id" value="{{ yp.id }}">
-                        <button class="btn small" type="submit" title="Chi phí $50,000">🏋️ Huấn luyện</button>
-                    </form>
-                    <form method="POST" action="{{ url_for('promote_youth', youth_id=yp.id) }}">
-                        <button class="btn small primary" type="submit">🚀 Đôn lên Đội 1</button>
-                    </form>
-                    <form method="POST" action="{{ url_for('release_youth', youth_id=yp.id) }}"
-                          onsubmit="return confirm('Thanh lý hợp đồng với {{ yp.name }}?')">
-                        <button class="btn small danger" type="submit">✖</button>
-                    </form>
+    <!-- ALERTS -->
+    {% if message %}
+    <div class="alert-box alert-success">
+        <span>✅</span>
+        <div>{{ message }}</div>
+    </div>
+    {% endif %}
+    {% if error %}
+    <div class="alert-box alert-error">
+        <span>⚠️</span>
+        <div>{{ error }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 1. CÁC KHU VỰC SĂN TÀI NĂNG TRẺ (SCOUTING EXPEDITIONS) -->
+    <div class="section-header">
+        <span>🧭</span> Cử Tuyển Trạch Viên (Scout Expeditions)
+    </div>
+
+    <div class="scout-grid">
+        <!-- Scout 1: Việt Nam -->
+        <div class="scout-card">
+            <div>
+                <div class="scout-flag">🇻🇳</div>
+                <div class="scout-name">Học Viện Trẻ Việt Nam</div>
+                <div class="scout-region">HAGL JMG, PVF, Viettel Academy</div>
+                <div class="scout-desc">Tài năng trẻ quốc nội, chi phí tuyển mộ rẻ, tiềm năng phát triển ổn định trong nước.</div>
+            </div>
+            <div>
+                <div class="scout-meta">
+                    <span>Tiềm năng OVR:</span>
+                    <strong>72 - 88 ⭐⭐⭐</strong>
                 </div>
-            </td>
-        </tr>
+                <div class="scout-meta">
+                    <span>Chi phí cử Scout:</span>
+                    <strong style="color:#34d399;">$150,000</strong>
+                </div>
+                <form action="{{ url_for('scout_wonderkids') }}" method="POST">
+                    <input type="hidden" name="region" value="vietnam">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">🔍 Cử Scout Đến Việt Nam</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Scout 2: Nam Mỹ -->
+        <div class="scout-card">
+            <div>
+                <div class="scout-flag">🇧🇷 🇦🇷</div>
+                <div class="scout-name">Lò Đào Tạo Nam Mỹ</div>
+                <div class="scout-region">Santos, Boca Juniors, Flamengo</div>
+                <div class="scout-desc">Cái nôi của những vũ công Samba & nghệ sĩ sân cỏ. Kỹ thuật cá nhân và rê dắt thượng thừa.</div>
+            </div>
+            <div>
+                <div class="scout-meta">
+                    <span>Tiềm năng OVR:</span>
+                    <strong>82 - 95 ⭐⭐⭐⭐</strong>
+                </div>
+                <div class="scout-meta">
+                    <span>Chi phí cử Scout:</span>
+                    <strong style="color:#34d399;">$450,000</strong>
+                </div>
+                <form action="{{ url_for('scout_wonderkids') }}" method="POST">
+                    <input type="hidden" name="region" value="south_america">
+                    <button type="submit" class="btn btn-gold" style="width:100%;">🔍 Săn Tài Năng Nam Mỹ</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Scout 3: Châu Âu -->
+        <div class="scout-card">
+            <div>
+                <div class="scout-flag">🇪🇸 🇳🇱 🏴󠁧󠁢󠁥󠁮󠁧󠁿</div>
+                <div class="scout-name">Lò Đào Tạo Châu Âu</div>
+                <div class="scout-region">La Masia, Ajax Youth, Carrington</div>
+                <div class="scout-desc">Nơi sản sinh những Wonderkid đỉnh cao thế giới. Tư duy chiến thuật và nhãn quan siêu việt.</div>
+            </div>
+            <div>
+                <div class="scout-meta">
+                    <span>Tiềm năng OVR:</span>
+                    <strong>88 - 99 ⭐⭐⭐⭐⭐</strong>
+                </div>
+                <div class="scout-meta">
+                    <span>Chi phí cử Scout:</span>
+                    <strong style="color:#34d399;">$850,000</strong>
+                </div>
+                <form action="{{ url_for('scout_wonderkids') }}" method="POST">
+                    <input type="hidden" name="region" value="europe">
+                    <button type="submit" class="btn btn-purple" style="width:100%;">✨ Săn Wonderkid Châu Âu</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Scout 4: Châu Phi & Quốc Tế -->
+        <div class="scout-card">
+            <div>
+                <div class="scout-flag">🇳🇬 🇨🇲 🌍</div>
+                <div class="scout-name">Học Viện Thể Lực Châu Phi</div>
+                <div class="scout-region">Right to Dream, ASEC Mimosas</div>
+                <div class="scout-desc">Nổi tiếng với nền tảng thể lực phi thường, bứt tốc như tia chớp và sức càn lướt mạnh mẽ.</div>
+            </div>
+            <div>
+                <div class="scout-meta">
+                    <span>Tiềm năng OVR:</span>
+                    <strong>76 - 92 ⭐⭐⭐⭐</strong>
+                </div>
+                <div class="scout-meta">
+                    <span>Chi phí cử Scout:</span>
+                    <strong style="color:#34d399;">$300,000</strong>
+                </div>
+                <form action="{{ url_for('scout_wonderkids') }}" method="POST">
+                    <input type="hidden" name="region" value="africa">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">🔍 Săn Tài Năng Châu Phi</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. KẾT QUẢ TUYỂN TRẠCH VỪA PHÁT HIỆN -->
+    {% if scout_results %}
+    <div class="discovered-section">
+        <div class="section-header" style="color: var(--gold);">
+            <span>🎉</span> Scout Đã Phát Hiện Các Tài Năng Mới!
+        </div>
+        <p style="color:#cbd5e1; font-size:0.9rem; margin-bottom:16px;">Hãy chọn những cầu thủ tiềm năng nhất để ký hợp đồng đưa vào Học viện của bạn.</p>
+
+        <div class="youth-grid">
+            {% for talent in scout_results %}
+            <div class="player-card" style="border-color: var(--gold);">
+                <div class="player-top">
+                    <div>
+                        <span class="player-pos-badge {% if talent.position in ['ST', 'LW', 'RW'] %}att{% elif talent.position in ['CM', 'CAM', 'CDM'] %}mid{% elif talent.position in ['CB', 'LB', 'RB'] %}def{% else %}gk{% endif %}">
+                            {{ talent.position }}
+                        </span>
+                        <div class="player-name" style="margin-top:6px;">{{ talent.name }}</div>
+                        <div class="player-origin">{{ talent.scout_origin }} • Tuổi {{ talent.age }}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="player-ovr">{{ talent.overall }}</div>
+                        <div class="potential-stars" title="Tiềm năng: {{ talent.potential }}">
+                            {% set stars = (talent.potential / 20)|round(0, 'floor')|int %}
+                            {{ '⭐' * stars }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-bars">
+                    <div class="stat-line"><span>Tấn công</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ talent.attack }}%;"></div></div><strong>{{ talent.attack }}</strong></div>
+                    <div class="stat-line"><span>Phòng thủ</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ talent.defense }}%;"></div></div><strong>{{ talent.defense }}</strong></div>
+                    <div class="stat-line"><span>Tốc độ</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ talent.speed }}%;"></div></div><strong>{{ talent.speed }}</strong></div>
+                </div>
+
+                <form action="{{ url_for('sign_youth_player') }}" method="POST">
+                    <input type="hidden" name="talent_index" value="{{ loop.index0 }}">
+                    <button type="submit" class="btn btn-gold" style="width:100%;">✍️ Ký Hợp Đồng Học Viện</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 3. DANH SÁCH HỌC VIÊN HIỆN CÓ TRONG HỌC VIỆN (U15 - U19) -->
+    <div class="section-header">
+        <span>🎓</span> Danh Sách Học Viên Đang Đào Tạo ({{ youth_players|length }} Học viên)
+    </div>
+
+    {% if youth_players %}
+    <div class="youth-grid">
+        {% for yp in youth_players %}
+        <div class="player-card">
+            <div class="player-top">
+                <div>
+                    <span class="player-pos-badge {% if yp.position in ['ST', 'LW', 'RW'] %}att{% elif yp.position in ['CM', 'CAM', 'CDM'] %}mid{% elif yp.position in ['CB', 'LB', 'RB'] %}def{% else %}gk{% endif %}">
+                        {{ yp.position }}
+                    </span>
+                    <div class="player-name" style="margin-top:6px;">{{ yp.name }}</div>
+                    <div class="player-origin">{{ yp.scout_origin }} • {{ yp.age }} tuổi</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="player-ovr">{{ yp.overall }}</div>
+                    <div class="potential-stars" title="Tiềm năng OVR tối đa: {{ yp.potential }}">
+                        {% set stars = (yp.potential / 20)|round(0, 'floor')|int %}
+                        {{ '⭐' * stars }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-bars">
+                <div class="stat-line"><span>Tấn công</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ yp.attack }}%;"></div></div><strong>{{ yp.attack }}</strong></div>
+                <div class="stat-line"><span>Phòng thủ</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ yp.defense }}%;"></div></div><strong>{{ yp.defense }}</strong></div>
+                <div class="stat-line"><span>Tốc độ</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width: {{ yp.speed }}%;"></div></div><strong>{{ yp.speed }}</strong></div>
+            </div>
+
+            <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:2px;">
+                <span>Điểm rèn luyện: <strong style="color:var(--accent);">{{ yp.training_points }} EXP</strong></span>
+                <span>Tiềm năng: <strong style="color:var(--gold);">Max {{ yp.potential }}</strong></span>
+            </div>
+
+            <!-- Nút Huấn luyện tăng chỉ số -->
+            <form action="{{ url_for('train_youth_player') }}" method="POST" style="margin-top:6px;">
+                <input type="hidden" name="youth_id" value="{{ yp.id }}">
+                <button type="submit" class="btn btn-primary" style="width:100%; font-size:0.82rem;">🏋️ Huấn Luyện Chuyên Sâu ($50,000)</button>
+            </form>
+
+            <div class="btn-group">
+                <!-- Nút Đôn lên đội 1 -->
+                <form action="{{ url_for('promote_youth', youth_id=yp.id) }}" method="POST">
+                    <button type="submit" class="btn btn-gold" style="width:100%; font-size:0.8rem;">🚀 Lên Đội 1</button>
+                </form>
+
+                <!-- Nút Giải phóng -->
+                <form action="{{ url_for('release_youth', youth_id=yp.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger" style="width:100%; font-size:0.8rem;" onclick="return confirm('Bạn chắc chắn muốn giải phóng cầu thủ trẻ này?');">❌ Giải phóng</button>
+                </form>
+            </div>
+        </div>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
+    {% else %}
+    <div class="empty-roster">
+        <div style="font-size:3rem; margin-bottom:12px;">🌱</div>
+        <h3 style="color:#e2e8f0; margin-bottom:6px;">Học viện hiện chưa có học viên nào</h3>
+        <p>Hãy cử các Tuyển trạch viên (Scouts) ở trên đến các lò đào tạo để tìm kiếm những viên ngọc thô cho tương lai CLB!</p>
+    </div>
+    {% endif %}
+
 </div>
-{% else %}
-<div class="card muted">Chưa có học viên nào. Hãy cử tuyển trạch viên để tìm tài năng trẻ!</div>
-{% endif %}
-{% endblock %}
+
+</body>
+</html>

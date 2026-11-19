@@ -1,158 +1,813 @@
-{% extends "base.html" %}
-{% block title %}{{ player.name }}{% endblock %}
-{% block head %}
-<style>
-  .detail { display: grid; gap: 16px; grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
-  @media (max-width: 800px) { .detail { grid-template-columns: 1fr; } }
-  .fc-card { border-radius: 18px; padding: 18px 16px; text-align: center; color: #1b1400; position: relative;
-             background: linear-gradient(160deg, #e9edf0, #9aa5ab); box-shadow: var(--shadow); }
-  .fc-card.tier-gold { background: linear-gradient(160deg, #ffe58a, #c8962c); }
-  .fc-card.tier-ucl { background: linear-gradient(160deg, #3a1d6e, #0d0a2b); color: #fff; }
-  .fc-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
-  .fc-card .big { font-size: 46px; font-weight: 900; line-height: 1; }
-  .fc-card .pos { font-weight: 800; font-size: 16px; }
-  .fc-card img { width: 140px; height: 140px; object-fit: cover; border-radius: 50%; margin: 6px auto; display: block; background: rgba(0,0,0,.15); }
-  .fc-card .fn { font-size: 12px; letter-spacing: .08em; opacity: .8; }
-  .fc-card .ln { font-size: 22px; font-weight: 900; letter-spacing: .04em; }
-  .fc-card .six { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; margin-top: 10px; font-weight: 800; }
-  .fc-card .six span { font-weight: 600; opacity: .75; margin-left: 4px; font-size: 12px; }
-  .attr-groups { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-  .attr { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; align-items: center; }
-  .attr .bar { grid-column: 1 / -1; height: 5px; }
-  .lvl { display: flex; gap: 4px; }
-  .lvl i { width: 18px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.12); }
-  .lvl i.on { background: var(--gold); }
-</style>
-{% endblock %}
-{% block content %}
-{% set labels = {
-  'pace': 'Tốc độ', 'shooting': 'Dứt điểm', 'passing': 'Chuyền bóng', 'dribbling': 'Rê bóng',
-  'defending': 'Phòng ngự', 'physical': 'Thể chất', 'goalkeeping': 'Thủ môn',
-  'acceleration': 'Tăng tốc', 'sprint_speed': 'Chạy nước rút', 'finishing': 'Dứt điểm', 'shot_power': 'Lực sút',
-  'long_shots': 'Sút xa', 'volleys': 'Vô lê', 'penalties': 'Penalty', 'positioning': 'Chọn vị trí',
-  'vision': 'Tầm nhìn', 'short_passing': 'Chuyền ngắn', 'long_passing': 'Chuyền dài', 'crossing': 'Tạt bóng',
-  'free_kick': 'Đá phạt', 'curve': 'Độ xoáy', 'agility': 'Nhanh nhẹn', 'balance': 'Thăng bằng',
-  'reactions': 'Phản ứng', 'ball_control': 'Khống chế bóng', 'dribbling_': 'Rê bóng', 'composure': 'Bình tĩnh',
-  'interceptions': 'Cắt bóng', 'heading_accuracy': 'Đánh đầu', 'marking': 'Kèm người',
-  'standing_tackle': 'Tắc bóng', 'sliding_tackle': 'Xoạc bóng', 'jumping': 'Bật nhảy', 'stamina': 'Sức bền',
-  'strength': 'Sức mạnh', 'aggression': 'Quyết liệt', 'gk_diving': 'Đổ người', 'gk_handling': 'Bắt bóng',
-  'gk_kicking': 'Phát bóng', 'gk_reflexes': 'Phản xạ', 'gk_positioning': 'Chọn vị trí (TM)'
-} %}
-{% set ids = enriched_players|map(attribute='id')|list %}
-{% set idx = ids.index(player.id) if player.id in ids else -1 %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ player.name }} - Hồ Sơ Cầu Thủ FC Mobile</title>
+    <style>
+        :root {
+            --bg-dark: #060a14;
+            --panel-bg: rgba(13, 20, 36, 0.95);
+            --card-border: #1e293b;
+            --primary: #10b981;
+            --accent: #38bdf8;
+            --gold: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-<div class="actions mb-2">
-    <a class="btn" href="{{ url_for('squad') }}">← Đội hình</a>
-    {% if idx > 0 %}<a class="btn" href="{{ url_for('player_detail', player_id=ids[idx - 1]) }}">‹ Trước</a>{% endif %}
-    {% if idx >= 0 and idx < ids|length - 1 %}<a class="btn" href="{{ url_for('player_detail', player_id=ids[idx + 1]) }}">Sau ›</a>{% endif %}
-</div>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body {
+            background: radial-gradient(circle at 50% 10%, #0d224d 0%, #050b18 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
 
-<div class="detail">
-    <div>
-        <div class="fc-card {{ player.tier }}">
-            <div class="top">
-                <div><div class="big" id="cardOvr">{{ player.fc_ovr }}</div><div class="pos">{{ player.position }}</div></div>
-                <div class="right"><div class="pos">{{ player.flag_code }}</div><div class="fn">{{ player.club_name }}</div></div>
-            </div>
-            {% set lname = player.name|lower %}
-            {% set img = 'doku.png' if 'doku' in lname else 'haaland.png' if 'haaland' in lname else 'mbappe.png' if 'mbappe' in lname else 'quanghai.png' if 'quang hải' in lname else 'default_avatar.png' %}
-            <img src="{{ url_for('static', filename='images/players/' ~ img) }}" alt="">
-            <div class="fn">{{ player.first_name }}</div>
-            <div class="ln">{{ player.last_name }}</div>
-            <div class="six" id="six">
-                <div>{{ player.pac }}<span>PAC</span></div><div>{{ player.sho }}<span>SHO</span></div><div>{{ player.pas }}<span>PAS</span></div>
-                <div>{{ player.dri }}<span>DRI</span></div><div>{{ player.def }}<span>DEF</span></div><div>{{ player.phy }}<span>PHY</span></div>
+        /* TOP NAVIGATION BAR */
+        .fc-top-nav {
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            background: rgba(11, 21, 40, 0.9);
+            backdrop-filter: blur(12px);
+        }
+        .fc-nav-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .fc-back-circle-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1.5px solid #38bdf8;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .fc-back-circle-btn:hover { background: #0284c7; transform: scale(1.06); }
+
+        .fc-player-title-box { display: flex; flex-direction: column; }
+        .fc-player-firstname { font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; }
+        .fc-player-lastname { font-size: 1.9rem; font-weight: 900; color: #fff; text-transform: uppercase; line-height: 1; letter-spacing: 0.5px; }
+
+        .fc-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .fc-compare-pill-btn {
+            background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);
+            border: 1px solid #38bdf8;
+            color: #fff;
+            padding: 9px 20px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.88rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+        }
+        .fc-compare-pill-btn:hover { transform: translateY(-2px); box-shadow: 0 0 20px rgba(56, 189, 248, 0.6); }
+
+        .fc-nav-arrow-btn {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #475569;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .fc-nav-arrow-btn:hover { background: #38bdf8; border-color: #38bdf8; color: #000; }
+
+        /* SUB INFO BAR */
+        .fc-sub-info-bar {
+            padding: 8px 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #cbd5e1;
+            font-size: 0.88rem;
+            font-weight: 600;
+            background: rgba(5, 12, 28, 0.7);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .fc-foot-tag {
+            background: #1e293b;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            font-weight: 800;
+        }
+
+        /* MAIN BODY LAYOUT (TWO COLUMNS) */
+        .fc-main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            padding: 20px 28px;
+            gap: 28px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* LEFT COLUMN */
+        .fc-left-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* THẺ FC MOBILE 3D SHIELD */
+        .fc-featured-card {
+            width: 270px;
+            height: 405px;
+            position: relative;
+            clip-path: polygon(50% 0%, 100% 12%, 100% 86%, 50% 100%, 0% 86%, 0% 12%);
+            padding: 5px;
+            filter: drop-shadow(0 15px 35px rgba(0, 242, 254, 0.45));
+            transition: transform 0.3s ease;
+        }
+        .fc-featured-card:hover { transform: scale(1.03); }
+
+        .fc-featured-card.tier-ucl {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 35%, #000428 100%);
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.4);
+        }
+        .fc-featured-card.tier-ucl .fut-card-inner {
+            background: linear-gradient(150deg, #06173d 0%, #0a2963 45%, #020718 100%);
+            border: 2px solid #00f2fe;
+        }
+        .fc-featured-card.tier-ucl .fut-ovr,
+        .fc-featured-card.tier-ucl .fut-stat-num,
+        .fc-featured-card.tier-ucl .fut-player-name {
+            color: #fde047;
+            text-shadow: 0 0 8px rgba(253, 224, 71, 0.6);
+        }
+
+        .fc-featured-card.tier-gold {
+            background: linear-gradient(135deg, #f59e0b 0%, #fef08a 35%, #78350f 100%);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.4);
+        }
+        .fc-featured-card.tier-gold .fut-card-inner {
+            background: linear-gradient(150deg, #3d2402 0%, #78350f 45%, #190a02 100%);
+            border: 2px solid #fbbf24;
+        }
+        .fc-featured-card.tier-gold .fut-ovr,
+        .fc-featured-card.tier-gold .fut-stat-num,
+        .fc-featured-card.tier-gold .fut-player-name {
+            color: #fef08a;
+            text-shadow: 0 0 8px rgba(254, 240, 138, 0.6);
+        }
+
+        .fc-featured-card.tier-silver {
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 35%, #334155 100%);
+        }
+        .fc-featured-card.tier-silver .fut-card-inner {
+            background: linear-gradient(150deg, #1e293b 0%, #334155 45%, #0f172a 100%);
+            border: 2px solid #cbd5e1;
+        }
+
+        .fut-card-inner {
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 100% 12%, 100% 86%, 50% 100%, 0% 86%, 0% 12%);
+            position: relative;
+            padding: 16px 14px 14px 14px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .fut-bg-patterns {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .fut-top-section {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+            height: 180px;
+        }
+        .fut-left-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 52px;
+            padding-top: 10px;
+        }
+        .fut-ovr { font-size: 2.2rem; font-weight: 900; line-height: 1; }
+        .fut-pos { font-size: 1.1rem; font-weight: 800; color: #fff; }
+        .fut-divider-line { width: 30px; height: 2px; background: rgba(255, 255, 255, 0.3); margin: 4px 0; }
+        .fut-badge-pill { background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+        .fut-club-shield { font-size: 0.68rem; font-weight: 800; color: #38bdf8; margin-top: 4px; }
+
+        .fut-avatar-box {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            position: relative;
+        }
+        .fut-player-img {
+            max-width: 155px;
+            max-height: 165px;
+            object-fit: contain;
+            filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+        }
+
+        .fut-rank-badge {
+            position: absolute;
+            bottom: -6px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            font-weight: 900;
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 6px;
+            border: 1.5px solid #fff;
+            z-index: 5;
+        }
+
+        .fut-name-ribbon {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 6px 4px 4px 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            margin: 4px 0 8px 0;
+            background: rgba(0, 0, 0, 0.25);
+        }
+        .fut-player-name { font-size: 1.05rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .fut-stats-grid { display: flex; justify-content: space-around; align-items: center; position: relative; z-index: 2; }
+        .fut-stat-col { display: flex; flex-direction: column; gap: 2px; width: 45%; }
+        .fut-stat-item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; }
+        .fut-stat-num { font-size: 0.92rem; font-weight: 900; width: 26px; text-align: right; }
+        .fut-stat-label { font-size: 0.72rem; font-weight: 800; color: #cbd5e1; }
+        .fut-center-divider { width: 1px; height: 50px; background: rgba(255, 255, 255, 0.2); }
+
+        /* Quick specs */
+        .fc-card-quick-specs {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 0.88rem;
+        }
+        .fc-spec-row { display: flex; justify-content: space-between; align-items: center; }
+        .fc-spec-label { color: #94a3b8; font-weight: 600; }
+        .fc-spec-val { font-weight: 800; color: #fff; }
+        .fc-stars { color: #f59e0b; font-size: 1rem; letter-spacing: 2px; }
+
+        /* RIGHT COLUMN */
+        .fc-right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* 1. TOP SUMMARY STATS BANNER */
+        .fc-summary-banner {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 16px;
+            padding: 16px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        }
+        .fc-ovr-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-right: 28px;
+            border-right: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        .fc-ovr-label { font-size: 0.8rem; font-weight: 800; color: #94a3b8; letter-spacing: 1px; }
+        .fc-ovr-val { font-size: 3rem; font-weight: 900; color: #fff; line-height: 1; }
+
+        .fc-six-stats-row {
+            flex: 1;
+            display: flex;
+            justify-content: space-around;
+            padding-left: 20px;
+        }
+        .fc-stat-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .fc-stat-number { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+        .fc-stat-title { font-size: 0.75rem; font-weight: 800; color: #cbd5e1; text-transform: uppercase; }
+        .stat-green { color: #34d399; text-shadow: 0 0 10px rgba(52, 211, 153, 0.5); }
+        .stat-cyan { color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .stat-yellow { color: #fde047; text-shadow: 0 0 10px rgba(253, 224, 71, 0.5); }
+
+        /* ACTION CARDS */
+        .fc-two-cols-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .fc-action-card {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .fc-action-card-left { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .fc-action-title { font-size: 0.85rem; font-weight: 700; color: #94a3b8; }
+        .fc-action-value { font-size: 1.3rem; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .fc-progress-bar-bg { width: 140px; height: 6px; background: #334155; border-radius: 4px; overflow: hidden; }
+        .fc-progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 4px; transition: width 0.3s ease; }
+
+        .fc-pill-action-btn {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border: 1px solid #38bdf8;
+            color: #fff;
+            padding: 9px 20px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+            white-space: nowrap;
+        }
+        .fc-pill-action-btn:hover { background: #0284c7; transform: scale(1.04); box-shadow: 0 0 16px rgba(56, 189, 248, 0.6); }
+
+        .fc-playstyle-widget { display: flex; align-items: center; gap: 14px; }
+        .fc-playstyle-icon-box {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1.5px solid #38bdf8;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+        }
+        .fc-skills-icons-row { display: flex; gap: 8px; align-items: center; }
+        .fc-skill-boost-badge {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            border: 1px solid #818cf8;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #e0e7ff;
+        }
+
+        /* ATTRIBUTES GRID */
+        .fc-attrs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        .fc-attr-category-card { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; border-radius: 14px; padding: 14px 16px; }
+        .fc-cat-header { font-size: 0.92rem; font-weight: 800; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 4px; }
+        .fc-sub-attr-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.85rem; }
+        .fc-sub-attr-name { color: #94a3b8; }
+        .fc-sub-attr-val { font-weight: 800; color: #fff; }
+
+        /* PLAYSTYLES GRID */
+        .fc-playstyles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        .fc-trait-card { background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; border-radius: 14px; padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
+        .fc-trait-icon { font-size: 2rem; background: rgba(30, 41, 59, 0.8); border: 1px solid #38bdf8; border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; }
+        .fc-trait-content h4 { font-size: 0.98rem; font-weight: 800; color: #fde047; margin-bottom: 4px; }
+        .fc-trait-content p { font-size: 0.82rem; color: #94a3b8; line-height: 1.4; }
+
+        /* HIDDEN & TRANSFER */
+        .fc-hidden-stats-card { background: rgba(15, 23, 42, 0.85); border: 1px solid #1e293b; border-radius: 16px; padding: 18px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .fc-contract-card { background: rgba(15, 23, 42, 0.85); border: 1px solid #1e293b; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+        /* BOTTOM TABS */
+        .fc-bottom-tabs-bar {
+            height: 58px;
+            background: #070d1d;
+            border-top: 1px solid rgba(56, 189, 248, 0.2);
+            display: flex;
+            justify-content: space-around;
+            align-items: stretch;
+            padding: 0 10px;
+            position: sticky;
+            bottom: 0;
+            z-index: 99;
+        }
+        .fc-bottom-tab-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 0.88rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            padding: 0 16px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .fc-bottom-tab-btn:hover { color: #fff; }
+        .fc-bottom-tab-btn.active { color: #38bdf8; }
+        .fc-bottom-tab-btn.active::before { content: '▼'; position: absolute; top: 2px; font-size: 0.65rem; color: #38bdf8; filter: drop-shadow(0 0 6px #38bdf8); }
+        .fc-bottom-tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 20%; right: 20%; height: 3px; background: #38bdf8; border-radius: 3px 3px 0 0; box-shadow: 0 0 10px #38bdf8; }
+    </style>
+</head>
+<body>
+
+    <!-- TOP NAVIGATION -->
+    <div class="fc-top-nav">
+        <div class="fc-nav-left">
+            <a href="{{ url_for('squad') }}" class="fc-back-circle-btn" title="Quay lại Đội hình">❮</a>
+            <div class="fc-player-title-box">
+                <span class="fc-player-firstname">{{ player.first_name }}</span>
+                <span class="fc-player-lastname">{{ player.last_name }}</span>
             </div>
         </div>
 
-        <div class="card mt-2">
-            <h3>📈 Nâng cấp</h3>
-            <p class="muted" style="margin:0 0 6px">Cấp huấn luyện: <b id="tLvl">{{ player.training_level }}</b>/{{ player.max_training_level }}</p>
-            <div class="bar mb-2"><i id="tBar" style="width: {{ (player.training_level / player.max_training_level * 100)|round }}%"></i></div>
-            <button class="btn primary block" id="trainBtn">🏋️ Huấn luyện (+1 chỉ số · $120,000)</button>
-            <p class="muted mt-2" style="margin-bottom:6px">Hạng: <b id="rLvl">{{ player.rank_level }}</b>/{{ player.max_rank_level }}</p>
-            <div class="lvl mb-2" id="rankDots">{% for i in range(player.max_rank_level) %}<i class="{{ 'on' if i < player.rank_level }}"></i>{% endfor %}</div>
-            <button class="btn gold block" id="rankBtn">🔶 Thăng hạng (+2 chỉ số · $<span id="rankCost">{{ "{:,}".format(400000 * player.rank_level) }}</span>)</button>
-            <p class="muted mt-2" style="margin:0">Ngân sách CLB: $<b id="money">{{ "{:,}".format(club.money) }}</b></p>
+        <div class="fc-nav-right">
+            <a href="{{ url_for('squad') }}" class="fc-compare-pill-btn">👥 SO SÁNH</a>
+            {% set prev_p = enriched_players[(enriched_players.index(player) - 1) % enriched_players|length] %}
+            {% set next_p = enriched_players[(enriched_players.index(player) + 1) % enriched_players|length] %}
+            <a href="{{ url_for('player_detail', player_id=prev_p.id) }}" class="fc-nav-arrow-btn" title="Cầu thủ trước: {{ prev_p.name }}">❮</a>
+            <a href="{{ url_for('player_detail', player_id=next_p.id) }}" class="fc-nav-arrow-btn" title="Cầu thủ tiếp theo: {{ next_p.name }}">❯</a>
+            <a href="{{ url_for('dashboard') }}" class="fc-back-circle-btn" title="Về Trang Chủ">🏠</a>
         </div>
     </div>
 
-    <div>
-        <div class="card">
-            <h2 style="margin-bottom:4px">{{ player.name }}</h2>
-            <p class="muted" style="margin:0 0 12px">{{ player.position }} · Vị trí phụ: {{ player.secondary_pos }} · {{ player.nationality }} · {{ player.league }}</p>
-            <div class="stats">
-                <div class="stat"><b>{{ player.age }}</b><span>Tuổi</span></div>
-                <div class="stat"><b>{{ player.height }} cm</b><span>Chiều cao</span></div>
-                <div class="stat"><b>{{ player.weight }} kg</b><span>Cân nặng</span></div>
-                <div class="stat"><b>{{ '★' * player.weak_foot }}</b><span>Chân không thuận</span></div>
-                <div class="stat"><b>{{ '★' * player.skill_moves }}</b><span>Kỹ thuật</span></div>
-                <div class="stat"><b>{{ player.goals }} / {{ player.assists }}</b><span>Bàn / Kiến tạo</span></div>
-                <div class="stat"><b>{{ player.matches_played }}</b><span>Trận</span></div>
-                <div class="stat"><b>{{ player.stamina|round(1) }}</b><span>Thể lực</span></div>
-                <div class="stat"><b>${{ "{:,}".format(player.contract_wage) }}</b><span>Lương/tuần</span></div>
-                <div class="stat"><b>${{ "{:,}".format(player.market_value) }}</b><span>Giá trị</span></div>
+    <!-- SUB INFO BAR -->
+    <div class="fc-sub-info-bar">
+        <span>{{ player.height }} cm</span> •
+        <span>{{ player.weight }} kg</span> •
+        <span>{{ player.age }} tuổi</span> •
+        <span>Chân thuận <span class="fc-foot-tag">{{ player.weak_foot }} 5</span></span> •
+        <span>{{ player.nationality }}</span> •
+        <span>🦁 {{ player.league }}</span>
+    </div>
+
+    <!-- MAIN BODY -->
+    <div class="fc-main-container">
+        
+        <!-- LEFT COLUMN: THẺ CẦU THỦ -->
+        <div class="fc-left-col">
+            <div class="fc-featured-card {{ player.tier }}">
+                <div class="fut-card-inner">
+                    <div class="fut-bg-patterns"></div>
+                    <div class="fut-top-section">
+                        <div class="fut-left-col">
+                            <div class="fut-ovr">{{ player.fc_ovr }}</div>
+                            <div class="fut-pos">{{ player.position }}</div>
+                            <div class="fut-divider-line"></div>
+                            <div class="fut-badge-pill">{{ player.flag_code }}</div>
+                            <div class="fut-club-shield">CLB</div>
+                        </div>
+
+                        <div class="fut-avatar-box">
+                            {{ player.avatar_svg | safe }}
+                            <div class="fut-rank-badge">★ {{ player.training_level }}</div>
+                        </div>
+                    </div>
+
+                    <div class="fut-name-ribbon">
+                        <div class="fut-player-name">{{ player.name }}</div>
+                    </div>
+
+                    <div class="fut-stats-grid">
+                        <div class="fut-stat-col">
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.pac }}</span><span class="fut-stat-label">PAC</span></div>
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.sho }}</span><span class="fut-stat-label">SHO</span></div>
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.pas }}</span><span class="fut-stat-label">PAS</span></div>
+                        </div>
+                        <div class="fut-center-divider"></div>
+                        <div class="fut-stat-col">
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.dri }}</span><span class="fut-stat-label">DRI</span></div>
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.def }}</span><span class="fut-stat-label">DEF</span></div>
+                            <div class="fut-stat-item"><span class="fut-stat-num">{{ player.phy }}</span><span class="fut-stat-label">PHY</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Specs Under Card -->
+            <div class="fc-card-quick-specs">
+                <div class="fc-spec-row">
+                    <span class="fc-spec-label">Vị Trí</span>
+                    <span class="fc-spec-val" style="color:#38bdf8;">{{ player.secondary_pos }}</span>
+                </div>
+                <div class="fc-spec-row">
+                    <span class="fc-spec-label">Sức Bền</span>
+                    <span class="fc-stars">★★★★☆</span>
+                </div>
+                <div class="fc-spec-row">
+                    <span class="fc-spec-label">Động Tác KT</span>
+                    <span class="fc-stars">{{ "★" * player.skill_moves }}{{ "☆" * (5 - player.skill_moves) }}</span>
+                </div>
             </div>
         </div>
 
-        <div class="card">
-            <h3>{{ player.playstyle_icon }} Lối chơi: {{ player.playstyle_name }}</h3>
-            <p class="muted" style="margin:0">{{ player.playstyle_desc }}</p>
-            <div class="grid mt-2">
-                {% for ps in player.playstyles_list %}
-                <div class="stat"><b style="font-size:16px">{{ ps.icon }} {{ ps.name }}</b><span>{{ ps.desc }}</span></div>
-                {% endfor %}
-            </div>
-        </div>
+        <!-- RIGHT COLUMN: DYNAMIC TABS -->
+        <div class="fc-right-col">
 
-        <div class="card">
-            <h3>📋 Chỉ số chi tiết</h3>
-            <div class="attr-groups">
-                {% for group, items in player.attrs.items() %}
-                <div class="stat">
-                    <b style="font-size:15px; margin-bottom:6px">{{ labels.get(group, group) }}</b>
-                    {% for k, v in items.items() %}
-                    <div class="attr">
-                        <span>{{ labels.get(k, k) if not (group == 'dribbling' and k == 'dribbling') else 'Rê bóng' }}</span><b>{{ v }}</b>
-                        <div class="bar {{ 'low' if v < 50 else 'warn' if v < 70 else '' }}"><i style="width: {{ [v, 100]|min }}%"></i></div>
+            <!-- 1. TAB TỔNG KẾT -->
+            <div id="tabSummary" class="tab-pane">
+                <div class="fc-summary-banner">
+                    <div class="fc-ovr-box">
+                        <span class="fc-ovr-label">OVR</span>
+                        <span class="fc-ovr-val" id="dispOvr">{{ player.fc_ovr }}</span>
+                    </div>
+                    <div class="fc-six-stats-row">
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-green" id="dispPac">{{ player.pac }}</span>
+                            <span class="fc-stat-title">TỐC ĐỘ</span>
+                        </div>
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-green" id="dispSho">{{ player.sho }}</span>
+                            <span class="fc-stat-title">SÚT</span>
+                        </div>
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-green" id="dispPas">{{ player.pas }}</span>
+                            <span class="fc-stat-title">CHUYỀN</span>
+                        </div>
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-cyan" id="dispDri">{{ player.dri }}</span>
+                            <span class="fc-stat-title">RÊ BÓNG</span>
+                        </div>
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-yellow" id="dispDef">{{ player.def }}</span>
+                            <span class="fc-stat-title">PHÒNG NGỰ</span>
+                        </div>
+                        <div class="fc-stat-block">
+                            <span class="fc-stat-number stat-green" id="dispPhy">{{ player.phy }}</span>
+                            <span class="fc-stat-title">THỂ LỰC</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action row 1: Huấn Luyện & Thăng Hạng -->
+                <div class="fc-two-cols-row" style="margin-top:16px;">
+                    <div class="fc-action-card">
+                        <div class="fc-action-card-left">
+                            <span class="fc-action-title">Cấp Huấn Luyện</span>
+                            <span class="fc-action-value" id="dispTrainText">{{ player.training_level }}/30</span>
+                            <div class="fc-progress-bar-bg">
+                                <div class="fc-progress-fill" id="dispTrainBar" style="width: {{ (player.training_level / 30) * 100 }}%;"></div>
+                            </div>
+                        </div>
+                        <button class="fc-pill-action-btn" onclick="doTrain()">HUẤN LUYỆN</button>
+                    </div>
+
+                    <div class="fc-action-card">
+                        <div class="fc-action-card-left">
+                            <span class="fc-action-title">Cấp Thăng Hạng</span>
+                            <span class="fc-action-value" id="dispRankText" style="color:#f59e0b;">{{ "🔶" * player.rank_level }}</span>
+                        </div>
+                        <button class="fc-pill-action-btn" onclick="doRankup()">THĂNG HẠNG</button>
+                    </div>
+                </div>
+
+                <!-- Action row 2: Lối Đá & Kỹ Năng -->
+                <div class="fc-two-cols-row" style="margin-top:16px;">
+                    <div class="fc-action-card">
+                        <div class="fc-action-card-left">
+                            <span class="fc-action-title">Lối Đá Đặc Trưng</span>
+                            <div class="fc-playstyle-widget">
+                                <div class="fc-playstyle-icon-box">{{ player.playstyle_icon }}</div>
+                                <div>
+                                    <strong style="color:#fff; font-size:0.95rem; display:block;">{{ player.playstyle_name }}</strong>
+                                    <span style="font-size:0.75rem; color:#94a3b8;">{{ player.playstyle_desc }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="fc-action-card">
+                        <div class="fc-action-card-left">
+                            <span class="fc-action-title">Kỹ Năng & Skill Boosts</span>
+                            <div class="fc-skills-icons-row">
+                                <div class="fc-skill-boost-badge">WR<span>+5</span></div>
+                                <div class="fc-skill-boost-badge">DRI<span>+6</span></div>
+                                <div class="fc-skill-boost-badge">PAC<span>+8</span></div>
+                                <div class="fc-skill-boost-badge">PHY<span>+4</span></div>
+                            </div>
+                        </div>
+                        <button class="fc-pill-action-btn" style="background:#334155; border-color:#475569;" onclick="switchTab('attrs')">XEM TẤT CẢ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. TAB THUỘC TÍNH (24+ METERS) -->
+            <div id="tabAttrs" class="tab-pane" style="display:none;">
+                <div class="fc-attrs-grid">
+                    <!-- Pace -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>⚡ TỐC ĐỘ</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Tăng tốc</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.pace.acceleration }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Tốc độ chạy nước rút</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.pace.sprint_speed }}</span></div>
+                    </div>
+                    <!-- Shooting -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>🎯 SÚT BÓNG</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Dứt điểm</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.shooting.finishing }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Lực sút</span><span class="fc-sub-attr-val" style="color:#38bdf8;">{{ player.attrs.shooting.shot_power }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Sút xa</span><span class="fc-sub-attr-val">{{ player.attrs.shooting.long_shots }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Vô-lê</span><span class="fc-sub-attr-val">{{ player.attrs.shooting.volleys }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Penalty</span><span class="fc-sub-attr-val">{{ player.attrs.shooting.penalties }}</span></div>
+                    </div>
+                    <!-- Passing -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>🪄 CHUYỀN BÓNG</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Tầm nhìn</span><span class="fc-sub-attr-val" style="color:#38bdf8;">{{ player.attrs.passing.vision }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Chuyền ngắn</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.passing.short_passing }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Chuyền dài</span><span class="fc-sub-attr-val">{{ player.attrs.passing.long_passing }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Tạt bóng</span><span class="fc-sub-attr-val">{{ player.attrs.passing.crossing }}</span></div>
+                    </div>
+                    <!-- Dribbling -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>🌀 RÊ BÓNG</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Rê dắt</span><span class="fc-sub-attr-val" style="color:#38bdf8;">{{ player.attrs.dribbling.dribbling }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Kiểm soát bóng</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.dribbling.ball_control }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Khéo léo</span><span class="fc-sub-attr-val">{{ player.attrs.dribbling.agility }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Thăng bằng</span><span class="fc-sub-attr-val">{{ player.attrs.dribbling.balance }}</span></div>
+                    </div>
+                    <!-- Defending -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>🛡️ PHÒNG NGỰ</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Kèm người</span><span class="fc-sub-attr-val">{{ player.attrs.defending.marking }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Cắt bóng</span><span class="fc-sub-attr-val">{{ player.attrs.defending.interceptions }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Tranh bóng</span><span class="fc-sub-attr-val">{{ player.attrs.defending.standing_tackle }}</span></div>
+                    </div>
+                    <!-- Physical -->
+                    <div class="fc-attr-category-card">
+                        <div class="fc-cat-header"><span>💪 THỂ LỰC</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Sức mạnh</span><span class="fc-sub-attr-val">{{ player.attrs.physical.strength }}</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Thể lực / Sức bền</span><span class="fc-sub-attr-val" style="color:#34d399;">{{ player.attrs.physical.stamina }}%</span></div>
+                        <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Bật nhảy</span><span class="fc-sub-attr-val">{{ player.attrs.physical.jumping }}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. TAB LỐI ĐÁ -->
+            <div id="tabPlaystyles" class="tab-pane" style="display:none;">
+                <div class="fc-playstyles-grid">
+                    {% for tr in player.playstyles_list %}
+                    <div class="fc-trait-card">
+                        <div class="fc-trait-icon">{{ tr.icon }}</div>
+                        <div class="fc-trait-content">
+                            <h4>{{ tr.name }}</h4>
+                            <p>{{ tr.desc }}</p>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-        </div>
-    </div>
-</div>
-<div id="toast" class="alert success" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:none;z-index:200"></div>
-{% endblock %}
 
-{% block scripts %}
+            <!-- 4. TAB CHỈ SỐ ẨN -->
+            <div id="tabHidden" class="tab-pane" style="display:none;">
+                <div class="fc-hidden-stats-card">
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Xu hướng Tấn công (Work Rate ATK)</span><span class="fc-sub-attr-val" style="color:#34d399;">Cao (High)</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Xu hướng Phòng ngự (Work Rate DEF)</span><span class="fc-sub-attr-val" style="color:#f59e0b;">Trung bình (Med)</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Độ ổn định phong độ</span><span class="fc-sub-attr-val" style="color:#38bdf8;">Xuất sắc (95%)</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Khả năng Lãnh đạo</span><span class="fc-sub-attr-val">Đội trưởng tiềm năng</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Kháng chấn thương</span><span class="fc-sub-attr-val" style="color:#34d399;">Rất cao</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Chuyên gia Penalty / Free Kick</span><span class="fc-sub-attr-val" style="color:#fde047;">Chân sút chủ lực</span></div>
+                </div>
+            </div>
+
+            <!-- 5. TAB CHUYỂN NHƯỢNG -->
+            <div id="tabTransfer" class="tab-pane" style="display:none;">
+                <div class="fc-contract-card">
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Giá trị thị trường ước tính</span><span class="fc-sub-attr-val" style="color:#34d399; font-size:1.2rem;">{{ "{:,}".format(player.market_value) }} $</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Mức lương hiện tại</span><span class="fc-sub-attr-val" style="color:#f59e0b; font-size:1.1rem;">{{ "{:,}".format(player.contract_wage) }} $/tuần</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Thời hạn hợp đồng</span><span class="fc-sub-attr-val">3 năm (Đến 2029)</span></div>
+                    <div class="fc-sub-attr-row"><span class="fc-sub-attr-name">Điều khoản giải phóng</span><span class="fc-sub-attr-val" style="color:#ef4444;">{{ "{:,}".format(player.market_value * 3) }} $</span></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- STICKY BOTTOM TABS -->
+    <div class="fc-bottom-tabs-bar">
+        <button class="fc-bottom-tab-btn active" id="btn_summary" onclick="switchTab('summary')">TỔNG KẾT</button>
+        <button class="fc-bottom-tab-btn" id="btn_attrs" onclick="switchTab('attrs')">THUỘC TÍNH</button>
+        <button class="fc-bottom-tab-btn" id="btn_playstyles" onclick="switchTab('playstyles')">LỐI ĐÁ</button>
+        <button class="fc-bottom-tab-btn" id="btn_hidden" onclick="switchTab('hidden')">CHỈ SỐ ẨN</button>
+        <button class="fc-bottom-tab-btn" id="btn_transfer" onclick="switchTab('transfer')">CHUYỂN NHƯỢNG</button>
+    </div>
+
 <script>
-const API = { train: "{{ url_for('api_train_player') }}", rank: "{{ url_for('api_rankup_player') }}" };
-const PID = {{ player.id }};
-function toast(msg, ok) {
-  const t = document.getElementById('toast'); t.textContent = msg;
-  t.className = 'alert ' + (ok ? 'success' : 'error'); t.style.display = 'block';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600);
+const playerId = {{ player.id }};
+
+function switchTab(tabKey) {
+    const tabs = ['summary', 'attrs', 'playstyles', 'hidden', 'transfer'];
+    tabs.forEach(t => {
+        document.getElementById(`btn_${t}`).classList.toggle('active', t === tabKey);
+    });
+    document.getElementById('tabSummary').style.display = (tabKey === 'summary') ? 'block' : 'none';
+    document.getElementById('tabAttrs').style.display = (tabKey === 'attrs') ? 'block' : 'none';
+    document.getElementById('tabPlaystyles').style.display = (tabKey === 'playstyles') ? 'block' : 'none';
+    document.getElementById('tabHidden').style.display = (tabKey === 'hidden') ? 'block' : 'none';
+    document.getElementById('tabTransfer').style.display = (tabKey === 'transfer') ? 'block' : 'none';
 }
-function update(p, money) {
-  document.getElementById('cardOvr').textContent = p.fc_ovr;
-  document.getElementById('six').innerHTML = [['pac','PAC'],['sho','SHO'],['pas','PAS'],['dri','DRI'],['def','DEF'],['phy','PHY']]
-    .map(([k, l]) => `<div>${p[k]}<span>${l}</span></div>`).join('');
-  document.getElementById('tLvl').textContent = p.training_level;
-  document.getElementById('tBar').style.width = (p.training_level / p.max_training_level * 100) + '%';
-  document.getElementById('rLvl').textContent = p.rank_level;
-  document.getElementById('rankDots').innerHTML = Array.from({ length: p.max_rank_level }, (_, i) => `<i class="${i < p.rank_level ? 'on' : ''}"></i>`).join('');
-  document.getElementById('rankCost').textContent = (400000 * p.rank_level).toLocaleString('en-US');
-  document.getElementById('money').textContent = Number(money).toLocaleString('en-US');
+
+async function doTrain() {
+    try {
+        const res = await fetch('/api/train_player', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ player_id: playerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('dispOvr').textContent = data.player.fc_ovr;
+            document.getElementById('dispPac').textContent = data.player.pac;
+            document.getElementById('dispSho').textContent = data.player.sho;
+            document.getElementById('dispPas').textContent = data.player.pas;
+            document.getElementById('dispDri').textContent = data.player.dri;
+            document.getElementById('dispDef').textContent = data.player.def;
+            document.getElementById('dispPhy').textContent = data.player.phy;
+            document.getElementById('dispTrainText').textContent = `${data.player.training_level}/30`;
+            document.getElementById('dispTrainBar').style.width = `${(data.player.training_level / 30) * 100}%`;
+            alert(`🎉 ${data.message}`);
+        } else {
+            alert(`⚠️ ${data.error}`);
+        }
+    } catch(e) {
+        alert('Lỗi kết nối huấn luyện.');
+    }
 }
-async function call(url) {
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player_id: PID }) });
-  const d = await r.json();
-  if (!d.success) { toast(d.error || 'Có lỗi xảy ra', false); return; }
-  update(d.player, d.club_money); toast(d.message, true);
+
+async function doRankup() {
+    try {
+        const res = await fetch('/api/rankup_player', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ player_id: playerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('dispOvr').textContent = data.player.fc_ovr;
+            document.getElementById('dispRankText').textContent = '🔶'.repeat(data.player.rank_level);
+            alert(`🏆 ${data.message}`);
+        } else {
+            alert(`⚠️ ${data.error}`);
+        }
+    } catch(e) {
+        alert('Lỗi kết nối thăng hạng.');
+    }
 }
-document.getElementById('trainBtn').onclick = () => call(API.train);
-document.getElementById('rankBtn').onclick = () => call(API.rank);
 </script>
-{% endblock %}
+
+</body>
+</html>

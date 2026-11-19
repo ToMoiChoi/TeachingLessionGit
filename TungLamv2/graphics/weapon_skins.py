@@ -109,7 +109,7 @@ def load_raw_skin(weapon_id):
         _raw_skins[w_key] = surf
         return surf
     except Exception as e:
-        print(f"[WeaponSkin] Không thể tải ảnh {path}: {e}")
+        print(f"[WeaponSkin] Failed to load image {path}: {e}")
         return None
 
 

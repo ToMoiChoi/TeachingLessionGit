@@ -1,37 +1,495 @@
-{% extends "base.html" %}
-{% block title %}Thống kê cầu thủ{% endblock %}
-{% block content %}
-<h1>📊 Thống kê cầu thủ</h1>
-{% set top = players[0] if players else None %}
-<div class="stats mb-2">
-    <div class="stat"><b>{{ players|sum(attribute='goals') }}</b><span>Tổng bàn thắng</span></div>
-    <div class="stat"><b>{{ players|map(attribute='assists')|map('default', 0)|sum }}</b><span>Tổng kiến tạo</span></div>
-    <div class="stat"><b>{{ top.name if top and top.goals else '–' }}</b><span>Vua phá lưới</span></div>
-    <div class="stat"><b>{{ players|length }}</b><span>Cầu thủ</span></div>
-</div>
-<div class="card">
-    <div class="table-wrap">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống Kê Cầu Thủ & Vua Phá Lưới FC Mobile - {{ club.name if club else 'CLB' }}</title>
+    <style>
+        :root {
+            --bg-dark: #060a14;
+            --panel-bg: rgba(13, 20, 36, 0.95);
+            --card-border: #1e293b;
+            --primary: #10b981;
+            --accent: #38bdf8;
+            --gold: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background: radial-gradient(circle at 50% 0%, #0d1b3e 0%, #030712 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 18px;
+        }
+        .container { max-width: 1280px; margin: 0 auto; }
+
+        .nav-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.92rem;
+            margin-bottom: 14px;
+        }
+        .nav-back:hover { text-decoration: underline; color: #fff; }
+
+        .page-header {
+            background: linear-gradient(135deg, rgba(30, 27, 75, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+            border: 1px solid #4338ca;
+            border-radius: 18px;
+            padding: 20px 26px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+        }
+        .page-header h1 { font-size: 1.8rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .page-header p { color: var(--text-muted); font-size: 0.92rem; margin-top: 4px; }
+
+        /* PODIUM TOP 3 CHÂN SÚT HÀNG ĐẦU */
+        .podium-section { margin-bottom: 35px; }
+        .podium-header {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--gold);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .podium-grid {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        /* THẺ FC MOBILE */
+        .fut-card {
+            width: 250px;
+            height: 380px;
+            position: relative;
+            clip-path: polygon(50% 0%, 100% 12%, 100% 86%, 50% 100%, 0% 86%, 0% 12%);
+            padding: 5px;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        .fut-card:hover { transform: translateY(-10px) scale(1.03); filter: drop-shadow(0 15px 30px rgba(0, 242, 254, 0.45)); }
+
+        .fut-card.tier-ucl {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 35%, #000428 100%);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+        }
+        .fut-card.tier-ucl .fut-card-inner {
+            background: linear-gradient(150deg, #06173d 0%, #0a2963 45%, #020718 100%);
+            border: 2px solid #00f2fe;
+        }
+        .fut-card.tier-ucl .fut-ovr, .fut-card.tier-ucl .fut-stat-num, .fut-card.tier-ucl .fut-player-name {
+            color: #fde047;
+            text-shadow: 0 0 8px rgba(253, 224, 71, 0.6);
+        }
+
+        .fut-card.tier-gold {
+            background: linear-gradient(135deg, #f59e0b 0%, #fef08a 35%, #78350f 100%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+        }
+        .fut-card.tier-gold .fut-card-inner {
+            background: linear-gradient(150deg, #3d2402 0%, #78350f 45%, #190a02 100%);
+            border: 2px solid #fbbf24;
+        }
+        .fut-card.tier-gold .fut-ovr, .fut-card.tier-gold .fut-stat-num, .fut-card.tier-gold .fut-player-name {
+            color: #fef08a;
+            text-shadow: 0 0 8px rgba(254, 240, 138, 0.6);
+        }
+
+        .fut-card.tier-silver {
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 35%, #334155 100%);
+        }
+        .fut-card.tier-silver .fut-card-inner {
+            background: linear-gradient(150deg, #1e293b 0%, #334155 45%, #0f172a 100%);
+            border: 2px solid #cbd5e1;
+        }
+        .fut-card.tier-silver .fut-ovr, .fut-card.tier-silver .fut-stat-num, .fut-card.tier-silver .fut-player-name {
+            color: #f8fafc;
+        }
+
+        .fut-card-inner {
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 100% 12%, 100% 86%, 50% 100%, 0% 86%, 0% 12%);
+            position: relative;
+            padding: 16px 14px 12px 14px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .fut-bg-patterns {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .fut-top-section {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+            height: 170px;
+        }
+        .fut-left-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 50px;
+            padding-top: 10px;
+        }
+        .fut-ovr { font-size: 2.1rem; font-weight: 900; line-height: 1; }
+        .fut-pos { font-size: 1.05rem; font-weight: 800; color: #fff; }
+        .fut-divider-line { width: 28px; height: 2px; background: rgba(255, 255, 255, 0.3); margin: 4px 0; }
+        .fut-badge-pill { background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 5px; border-radius: 4px; }
+        .fut-club-shield { font-size: 0.65rem; font-weight: 800; color: #38bdf8; margin-top: 3px; }
+
+        .fut-avatar-box {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            position: relative;
+        }
+        .fut-player-silhouette { width: 135px; height: 150px; display: flex; justify-content: center; align-items: flex-end; }
+        .fut-avatar-svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6)); }
+
+        .fut-rank-badge {
+            position: absolute;
+            bottom: -6px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            font-weight: 900;
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1.5px solid #fff;
+            z-index: 5;
+        }
+
+        .fut-name-ribbon {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 6px 4px 4px 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            margin: 4px 0 8px 0;
+            background: rgba(0, 0, 0, 0.25);
+        }
+        .fut-player-name { font-size: 0.98rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .fut-stats-grid { display: flex; justify-content: space-around; align-items: center; position: relative; z-index: 2; }
+        .fut-stat-col { display: flex; flex-direction: column; gap: 2px; width: 45%; }
+        .fut-stat-item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; }
+        .fut-stat-num { font-size: 0.88rem; font-weight: 900; width: 24px; text-align: right; }
+        .fut-stat-label { font-size: 0.7rem; font-weight: 800; color: #cbd5e1; }
+        .fut-center-divider { width: 1px; height: 48px; background: rgba(255, 255, 255, 0.2); }
+
+        .podium-rank-tag {
+            text-align: center;
+            font-weight: 900;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
+        }
+        .rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; }
+        .rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
+        .rank-3 { background: linear-gradient(135deg, #b45309, #78350f); color: #fff; }
+
+        /* TABLE VIEW */
+        .stats-table-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 14px 18px; border-bottom: 1px solid var(--card-border); font-size: 0.9rem; }
+        th { background: rgba(0, 0, 0, 0.4); color: var(--accent); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; }
+        tr:hover td { background: rgba(255, 255, 255, 0.04); cursor: pointer; }
+        .pos-badge { background: #2563eb; color: #fff; font-weight: 800; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; }
+
+        /* MODAL OVERLAY */
+        .fc-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 18, 0.94);
+            backdrop-filter: blur(16px);
+            z-index: 999999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .fc-modal-overlay.active { display: flex; }
+        .fc-inspector-container {
+            width: 100%;
+            max-width: 1220px;
+            height: 94vh;
+            max-height: 820px;
+            background: radial-gradient(circle at 50% 10%, #0d224d 0%, #050b18 100%);
+            border: 1px solid #1e3a8a;
+            border-radius: 20px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(2, 132, 199, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .fc-top-nav {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            background: rgba(11, 21, 40, 0.85);
+        }
+        .fc-back-circle-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid #38bdf8;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .fc-body-layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 310px 1fr;
+            padding: 16px 24px;
+            gap: 24px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <a href="{{ url_for('dashboard') }}" class="nav-back">← Quay lại Bảng điều khiển</a>
+
+    <div class="page-header">
+        <div>
+            <h1>📊 Thống Kê & Vua Phá Lưới - {{ club.name if club else 'CLB' }}</h1>
+            <p>Bảng xếp hạng hiệu suất ghi bàn và đóng góp trận đấu của toàn đội</p>
+        </div>
+        <a href="{{ url_for('squad') }}" class="pos-badge" style="padding:10px 16px; font-size:0.9rem; text-decoration:none;">
+            🛡️ Sang Đội Hình FC Mobile
+        </a>
+    </div>
+
+    <!-- 1. PODIUM TOP 3 CHÂN SÚT HÀNG ĐẦU -->
+    {% if enriched_players|length >= 3 %}
+    <div class="podium-section">
+        <div class="podium-header">👑 Top 3 Chân Sút Xuất Sắc Nhất Mùa Giải</div>
+        
+        <div class="podium-grid">
+            <!-- HẠNG 2 (BÊN TRÁI) -->
+            {% set p2 = enriched_players[1] %}
+            <div style="display:flex; flex-direction:column; align-items:center;" onclick="viewSquadDetail({{ p2.id }})">
+                <div class="fut-card {{ p2.tier }}">
+                    <div class="fut-card-inner">
+                        <div class="fut-bg-patterns"></div>
+                        <div class="fut-top-section">
+                            <div class="fut-left-col">
+                                <div class="fut-ovr">{{ p2.fc_ovr }}</div>
+                                <div class="fut-pos">{{ p2.position }}</div>
+                                <div class="fut-divider-line"></div>
+                                <div class="fut-badge-pill">{{ p2.flag_code }}</div>
+                            </div>
+                            <div class="fut-avatar-box">
+                                <div class="fut-player-silhouette">
+                                    <svg class="fut-avatar-svg" viewBox="0 0 100 120">
+                                        <ellipse cx="50" cy="40" rx="22" ry="26" fill="#8d5b4c"/>
+                                        <path d="M42 62 L42 75 L58 75 L58 62 Z" fill="#3d241c"/>
+                                        <path d="M20 120 L20 86 Q50 72 80 86 L80 120 Z" fill="#1e293b" stroke="#fde047" stroke-width="1.5"/>
+                                        <path d="M42 75 L50 90 L58 75 Z" fill="#fde047"/>
+                                    </svg>
+                                </div>
+                                <div class="fut-rank-badge">★ {{ p2.training_level }}</div>
+                            </div>
+                        </div>
+                        <div class="fut-name-ribbon"><div class="fut-player-name">{{ p2.name }}</div></div>
+                        <div class="fut-stats-grid">
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.pac }}</span><span class="fut-stat-label">PAC</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.sho }}</span><span class="fut-stat-label">SHO</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.pas }}</span><span class="fut-stat-label">PAS</span></div>
+                            </div>
+                            <div class="fut-center-divider"></div>
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.dri }}</span><span class="fut-stat-label">DRI</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.def }}</span><span class="fut-stat-label">DEF</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p2.phy }}</span><span class="fut-stat-label">PHY</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="podium-rank-tag rank-2">🥈 Top 2: {{ p2.goals }} Bàn</div>
+            </div>
+
+            <!-- HẠNG 1 - VUA PHÁ LƯỚI (Ở GIỮA) -->
+            {% set p1 = enriched_players[0] %}
+            <div style="display:flex; flex-direction:column; align-items:center;" onclick="viewSquadDetail({{ p1.id }})">
+                <div class="fut-card {{ p1.tier }}" style="transform: scale(1.08); z-index: 3;">
+                    <div class="fut-card-inner">
+                        <div class="fut-bg-patterns"></div>
+                        <div class="fut-top-section">
+                            <div class="fut-left-col">
+                                <div class="fut-ovr">{{ p1.fc_ovr }}</div>
+                                <div class="fut-pos">{{ p1.position }}</div>
+                                <div class="fut-divider-line"></div>
+                                <div class="fut-badge-pill">{{ p1.flag_code }}</div>
+                            </div>
+                            <div class="fut-avatar-box">
+                                <div class="fut-player-silhouette">
+                                    <svg class="fut-avatar-svg" viewBox="0 0 100 120">
+                                        <ellipse cx="50" cy="40" rx="22" ry="26" fill="#8d5b4c"/>
+                                        <path d="M42 62 L42 75 L58 75 L58 62 Z" fill="#3d241c"/>
+                                        <path d="M20 120 L20 86 Q50 72 80 86 L80 120 Z" fill="#1e293b" stroke="#fde047" stroke-width="1.5"/>
+                                        <path d="M42 75 L50 90 L58 75 Z" fill="#fde047"/>
+                                    </svg>
+                                </div>
+                                <div class="fut-rank-badge">★ {{ p1.training_level }}</div>
+                            </div>
+                        </div>
+                        <div class="fut-name-ribbon"><div class="fut-player-name">{{ p1.name }}</div></div>
+                        <div class="fut-stats-grid">
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.pac }}</span><span class="fut-stat-label">PAC</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.sho }}</span><span class="fut-stat-label">SHO</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.pas }}</span><span class="fut-stat-label">PAS</span></div>
+                            </div>
+                            <div class="fut-center-divider"></div>
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.dri }}</span><span class="fut-stat-label">DRI</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.def }}</span><span class="fut-stat-label">DEF</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p1.phy }}</span><span class="fut-stat-label">PHY</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="podium-rank-tag rank-1">👑 Top 1 Vua Phá Lưới: {{ p1.goals }} Bàn</div>
+            </div>
+
+            <!-- HẠNG 3 (BÊN PHẢI) -->
+            {% set p3 = enriched_players[2] %}
+            <div style="display:flex; flex-direction:column; align-items:center;" onclick="viewSquadDetail({{ p3.id }})">
+                <div class="fut-card {{ p3.tier }}">
+                    <div class="fut-card-inner">
+                        <div class="fut-bg-patterns"></div>
+                        <div class="fut-top-section">
+                            <div class="fut-left-col">
+                                <div class="fut-ovr">{{ p3.fc_ovr }}</div>
+                                <div class="fut-pos">{{ p3.position }}</div>
+                                <div class="fut-divider-line"></div>
+                                <div class="fut-badge-pill">{{ p3.flag_code }}</div>
+                            </div>
+                            <div class="fut-avatar-box">
+                                <div class="fut-player-silhouette">
+                                    <svg class="fut-avatar-svg" viewBox="0 0 100 120">
+                                        <ellipse cx="50" cy="40" rx="22" ry="26" fill="#8d5b4c"/>
+                                        <path d="M42 62 L42 75 L58 75 L58 62 Z" fill="#3d241c"/>
+                                        <path d="M20 120 L20 86 Q50 72 80 86 L80 120 Z" fill="#1e293b" stroke="#fde047" stroke-width="1.5"/>
+                                        <path d="M42 75 L50 90 L58 75 Z" fill="#fde047"/>
+                                    </svg>
+                                </div>
+                                <div class="fut-rank-badge">★ {{ p3.training_level }}</div>
+                            </div>
+                        </div>
+                        <div class="fut-name-ribbon"><div class="fut-player-name">{{ p3.name }}</div></div>
+                        <div class="fut-stats-grid">
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.pac }}</span><span class="fut-stat-label">PAC</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.sho }}</span><span class="fut-stat-label">SHO</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.pas }}</span><span class="fut-stat-label">PAS</span></div>
+                            </div>
+                            <div class="fut-center-divider"></div>
+                            <div class="fut-stat-col">
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.dri }}</span><span class="fut-stat-label">DRI</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.def }}</span><span class="fut-stat-label">DEF</span></div>
+                                <div class="fut-stat-item"><span class="fut-stat-num">{{ p3.phy }}</span><span class="fut-stat-label">PHY</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="podium-rank-tag rank-3">🥉 Top 3: {{ p3.goals }} Bàn</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 2. BẢNG THỐNG KÊ CHI TIẾT TOÀN ĐỘI HÌNH -->
+    <div class="stats-table-card">
         <table>
             <thead>
-            <tr><th>Cầu thủ</th><th>VT</th><th class="num">OVR</th><th class="num">Trận</th><th class="num">⚽</th>
-                <th class="num">🅰️</th><th class="num">🟨</th><th class="num">🟥</th><th>Thể lực</th></tr>
+                <tr>
+                    <th>#</th>
+                    <th>Tên Cầu Thủ</th>
+                    <th>Vị Trí</th>
+                    <th>OVR FC</th>
+                    <th>Bàn Thắng</th>
+                    <th>Kiến Tạo</th>
+                    <th>Số Trận</th>
+                    <th>Cấp HL</th>
+                    <th>Hạng</th>
+                    <th>Hành Động</th>
+                </tr>
             </thead>
             <tbody>
-            {% for p in players %}
-            <tr>
-                <td><a href="{{ url_for('player_detail', player_id=p.id) }}">{{ p.name }}</a></td>
-                <td><span class="badge pos {{ 'gk' if p.position == 'GK' }}">{{ p.position }}</span></td>
-                <td class="num"><span class="ovr {{ 'gold' if p.overall >= 85 }}">{{ p.overall|round|int }}</span></td>
-                <td class="num">{{ p.matches_played }}</td>
-                <td class="num"><b>{{ p.goals }}</b></td>
-                <td class="num">{{ p.assists or 0 }}</td>
-                <td class="num">{{ p.yellow_cards }}</td>
-                <td class="num">{{ p.red_cards }}</td>
-                <td><div class="bar {{ 'low' if p.stamina < 40 else ('warn' if p.stamina < 70) }}"><i style="width: {{ p.stamina|round|int }}%"></i></div></td>
-            </tr>
-            {% endfor %}
+                {% for p in enriched_players %}
+                <tr onclick="viewSquadDetail({{ p.id }})">
+                    <td>{{ loop.index }}</td>
+                    <td><strong>{{ p.name }}</strong></td>
+                    <td><span class="pos-badge">{{ p.position }}</span></td>
+                    <td><strong style="color:var(--gold); font-size:1.15rem;">{{ p.fc_ovr }}</strong></td>
+                    <td><strong style="color:#34d399; font-size:1.1rem;">⚽ {{ p.goals }}</strong></td>
+                    <td><strong style="color:#38bdf8;">👟 {{ p.assists or 0 }}</strong></td>
+                    <td>{{ p.matches_played }}</td>
+                    <td><span style="color:#34d399; font-weight:bold;">{{ p.training_level }}/30</span></td>
+                    <td><span style="color:#f59e0b;">{{ "🔶" * p.rank_level }}</span></td>
+                    <td><button class="pos-badge" style="border:none; cursor:pointer;" onclick="event.stopPropagation(); viewSquadDetail({{ p.id }})">🔍 Xem Hồ Sơ</button></td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
+
 </div>
-{% endblock %}
+
+<script>
+function viewSquadDetail(id) {
+    window.location.href = `/squad`;
+}
+</script>
+
+</body>
+</html>

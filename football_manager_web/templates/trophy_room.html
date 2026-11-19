@@ -1,32 +1,241 @@
-{% extends "base.html" %}
-{% block title %}Phòng danh hiệu{% endblock %}
-{% block content %}
-<a href="{{ url_for('dashboard') }}">← Quay lại Bảng điều khiển</a>
-<h1 class="mt-1">🏅 Phòng Truyền Thống {{ club.name }}</h1>
-<p class="muted">Những danh hiệu câu lạc bộ đã giành được qua các mùa giải.</p>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phòng Truyền Thống & Danh Hiệu - {{ club.name }}</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --bg-dark: #070b14;
+            --card-bg: #11192e;
+            --card-border: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.4);
+            --accent: #38bdf8;
+            --silver: #cbd5e1;
+            --purple: #a855f7;
+        }
 
-{% if trophies_list %}
-<div class="grid">
-    {% for t in trophies_list %}
-    <div class="card center">
-        <div style="font-size:48px">{{ t.icon if t is mapping and t.icon else '🏆' }}</div>
-        {% if t is mapping %}
-        <h3 class="mt-1 gold">{{ t.name or t.title or 'Danh hiệu' }}</h3>
-        {% if t.season %}<p class="muted" style="margin:0">Mùa giải {{ t.season }}</p>{% endif %}
-        {% if t.league %}<p class="muted" style="margin:0">{{ t.league }}</p>{% endif %}
-        {% if t.description %}<p class="muted" style="margin:6px 0 0;font-size:13px">{{ t.description }}</p>{% endif %}
-        {% else %}
-        <h3 class="mt-1 gold">{{ t }}</h3>
-        {% endif %}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background: radial-gradient(circle at 50% 0%, #172554 0%, #030712 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        .nav-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .nav-back:hover { text-decoration: underline; }
+
+        .hall-header {
+            text-align: center;
+            padding: 30px 20px;
+            margin-bottom: 30px;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+        .hall-header h1 {
+            font-size: 2.2rem;
+            color: var(--gold);
+            text-shadow: 0 0 15px var(--gold-glow);
+            margin-bottom: 8px;
+        }
+        .hall-header p {
+            color: #cbd5e1;
+            font-size: 1rem;
+        }
+
+        /* TROPHY PEDESTAL GRID */
+        .trophy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 35px;
+        }
+        .trophy-pedestal {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 26px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .trophy-pedestal.unlocked {
+            border-color: var(--gold);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        }
+        .trophy-pedestal.locked {
+            opacity: 0.55;
+            filter: grayscale(0.8);
+        }
+        .trophy-icon {
+            font-size: 4.5rem;
+            margin-bottom: 14px;
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.7));
+            transition: transform 0.3s;
+        }
+        .trophy-pedestal.unlocked:hover .trophy-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+        .trophy-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .trophy-subtitle {
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .trophy-desc {
+            font-size: 0.86rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 16px;
+        }
+        .trophy-status-tag {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .tag-won { background: rgba(245, 158, 11, 0.2); color: var(--gold); border: 1px solid var(--gold); }
+        .tag-locked { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); border: 1px solid #475569; }
+
+        /* CLUB CAREER STATS BANNER */
+        .career-stats-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .career-stat-item {
+            text-align: center;
+        }
+        .career-stat-item span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .career-stat-item strong {
+            font-size: 1.4rem;
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <a href="{{ url_for('dashboard') }}" class="nav-back">← Quay lại Bảng điều khiển</a>
+
+    <div class="hall-header">
+        <h1>🏛️ PHÒNG TRUYỀN THỐNG VĨ ĐẠI</h1>
+        <p>Nơi lưu giữ những chiếc cúp vinh quang và những cột mốc lịch sử của CLB <strong>{{ club.name }}</strong></p>
     </div>
-    {% endfor %}
+
+    <!-- 3 BỆ ĐẶT CÚP DANH GIÁ -->
+    <div class="trophy-grid">
+
+        <!-- 1. Cúp Thăng Hạng / Vô Địch Hạng 2 -->
+        {% set has_h2 = ('h2_promotion' in trophies_list) or (club.league in ['Hang 1', 'Champions League']) or (club.season > 1 and club.position <= 2) %}
+        <div class="trophy-pedestal {% if has_h2 %}unlocked{% else %}locked{% endif %}">
+            <div class="trophy-icon">🥈</div>
+            <div class="trophy-title">Cúp Thăng Hạng V-League 2</div>
+            <div class="trophy-subtitle">Hạng Đấu Hạng 2</div>
+            <div class="trophy-desc">Phần thưởng cho đội bóng xuất sắc cán đích trong Top 2 giải Hạng 2 để thăng hạng lên sân chơi đỉnh cao Hạng 1.</div>
+            {% if has_h2 %}
+                <div class="trophy-status-tag tag-won">✨ ĐÃ ĐẠT ĐƯỢC</div>
+            {% else %}
+                <div class="trophy-status-tag tag-locked">🔒 Chưa Đạt Được</div>
+            {% endif %}
+        </div>
+
+        <!-- 2. Cúp Vô Địch Quốc Gia Hạng 1 -->
+        {% set has_h1 = ('h1_champion' in trophies_list) or (club.league == 'Champions League') %}
+        <div class="trophy-pedestal {% if has_h1 %}unlocked{% else %}locked{% endif %}">
+            <div class="trophy-icon">🏆</div>
+            <div class="trophy-title">Chiếc Cúp Vô Địch Quốc Gia</div>
+            <div class="trophy-subtitle">V-League 1 Champion</div>
+            <div class="trophy-desc">Ngôi vương danh giá nhất giải Vô địch Quốc gia Hạng 1, đưa tên tuổi CLB bước ra vũ đài châu lục Champions League.</div>
+            {% if has_h1 %}
+                <div class="trophy-status-tag tag-won">🏆 ĐÃ VÔ ĐỊCH</div>
+            {% else %}
+                <div class="trophy-status-tag tag-locked">🔒 Chưa Đạt Được</div>
+            {% endif %}
+        </div>
+
+        <!-- 3. Cúp Bạc UEFA Champions League (Cúp C1) -->
+        {% set has_ucl = ('ucl_champion' in trophies_list) %}
+        <div class="trophy-pedestal {% if has_ucl %}unlocked{% else %}locked{% endif %}">
+            <div class="trophy-icon">⭐🏆⭐</div>
+            <div class="trophy-title">Cúp Bạc UEFA Champions League</div>
+            <div class="trophy-subtitle">Đỉnh Cao Châu Âu (Cúp C1)</div>
+            <div class="trophy-desc">Chiếc cúp tai voi huyền thoại, biểu tượng tối thượng của nhà vô địch bóng đá thế giới khi đánh bại Real Madrid, Man City, Bayern Munich!</div>
+            {% if has_ucl %}
+                <div class="trophy-status-tag tag-won">🌟 ĐỈNH CAO THẾ GIỚI</div>
+            {% else %}
+                <div class="trophy-status-tag tag-locked">🔒 Chưa Đạt Được</div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- TỔNG KẾT SỰ NGHIỆP HLV -->
+    <div class="career-stats-card">
+        <div class="career-stat-item">
+            <span>Mùa Giải Đang Thi Đấu</span>
+            <strong>Mùa {{ club.season }}</strong>
+        </div>
+        <div class="career-stat-item">
+            <span>Cấp Độ Giải Đấu Hiện Tại</span>
+            <strong style="color:var(--gold);">{{ club.league }}</strong>
+        </div>
+        <div class="career-stat-item">
+            <span>Tổng Trận Đã Đấu</span>
+            <strong>{{ club.matches_played }} Trận</strong>
+        </div>
+        <div class="career-stat-item">
+            <span>Điểm Số Tích Lũy</span>
+            <strong>{{ club.points }} pts</strong>
+        </div>
+        <div class="career-stat-item">
+            <span>Số Danh Hiệu Đoạt Được</span>
+            <strong style="color:#34d399;">{{ (1 if has_h2 else 0) + (1 if has_h1 else 0) + (1 if has_ucl else 0) }} Cúp</strong>
+        </div>
+    </div>
+
 </div>
-{% else %}
-<div class="card center">
-    <div style="font-size:48px">🏆</div>
-    <h3 class="mt-1">Tủ kính vẫn còn trống</h3>
-    <p class="muted">Hãy dẫn dắt đội bóng giành ngôi vô địch để đặt chiếc cúp đầu tiên vào đây!</p>
-    <a class="btn primary" href="{{ url_for('play_match') }}">▶️ Thi đấu ngay</a>
-</div>
-{% endif %}
-{% endblock %}
+
+</body>
+</html>

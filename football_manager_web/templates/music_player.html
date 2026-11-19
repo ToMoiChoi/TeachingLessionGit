@@ -1,0 +1,229 @@
+<!-- ===== THANH PHÁT NHẠC FIFA TOÀN HỆ THỐNG ===== -->
+<div id="fifa-player-widget">
+    <div class="f-info">
+        <span class="f-disc" id="fDisc">💿</span>
+        <div class="f-text">
+            <span class="f-title" id="fTitle">Love Me Again</span>
+            <span class="f-sub">FIFA Soundtrack</span>
+        </div>
+    </div>
+
+    <div class="f-controls">
+        <select id="fSongSelect" title="Chọn bài hát">
+            <option value="0">John Newman - Love Me Again</option>
+            <option value="1">Glass Animals - Heat Waves</option>
+            <option value="2">Joy Crookes - Feet Don't Fail Me Now</option>
+        </select>
+
+        <button id="fPrevBtn" title="Bài trước">⏮️</button>
+        <button id="fPlayBtn" title="Phát/Dừng">⏸️</button>
+        <button id="fNextBtn" title="Bài tiếp">⏭️</button>
+        <button id="fShuffleBtn" title="Phát ngẫu nhiên">🔀</button>
+
+        <div class="f-vol">
+            <span>🔈</span>
+            <input type="range" id="fVolume" min="0" max="1" step="0.05" value="0.35">
+            <span>🔊</span>
+        </div>
+    </div>
+</div>
+
+<style>
+#fifa-player-widget {
+    position: fixed;
+    bottom: 14px;
+    right: 14px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid #4338ca;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(99, 102, 241, 0.3);
+    border-radius: 50px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 99999;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 0.85rem;
+}
+.f-info { display: flex; align-items: center; gap: 8px; }
+.f-disc { font-size: 1.4rem; animation: fSpin 6s linear infinite paused; }
+.f-disc.playing { animation-play-state: running; }
+@keyframes fSpin { 100% { transform: rotate(360deg); } }
+.f-text { display: flex; flex-direction: column; max-width: 140px; }
+.f-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e0e7ff; }
+.f-sub { font-size: 0.7rem; color: #a5b4fc; }
+.f-controls { display: flex; align-items: center; gap: 8px; }
+.f-controls button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+}
+.f-controls button:hover { background: #4f46e5; }
+.f-controls button.active { background: #10b981; border-color: #10b981; }
+#fSongSelect {
+    background: #1e293b;
+    border: 1px solid #4338ca;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 20px;
+    outline: none;
+    font-size: 0.78rem;
+    cursor: pointer;
+    max-width: 180px;
+}
+.f-vol { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; }
+.f-vol input[type="range"] { width: 65px; cursor: pointer; accent-color: #6366f1; }
+@media (max-width: 768px) {
+    #fifa-player-widget { bottom: 8px; right: 8px; left: 8px; border-radius: 16px; justify-content: space-between; }
+    #fSongSelect, .f-vol { display: none; }
+}
+</style>
+
+<script>
+(function() {
+    // 1. NẾU LÀ TRANG TRẬN ĐẤU THÌ TẮT HOÀN TOÀN NHẠC FIFA
+    if (window.location.pathname.includes('/live_match')) {
+        const widget = document.getElementById('fifa-player-widget');
+        if (widget) widget.style.display = 'none';
+        return;
+    }
+
+    // 2. ĐỒNG NHẤT TIẾNG CLICK.WAV CHO MỌI THAO TÁC TRÊN TRANG
+    const clickSound = new Audio('/sounds/sfx/Click.wav');
+    clickSound.volume = 0.5;
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('a, button, select, input, .btn, [onclick]')) {
+            clickSound.currentTime = 0;
+            clickSound.play().catch(()=>{});
+        }
+    });
+
+    // 3. DANH SÁCH NHẠC FIFA (Đúng chuẩn tên file trong folder của bạn)
+    const tracks = [
+        { title: "Love Me Again", file: "/sounds/bgm/John Newman - Love Me Again.mp3" },
+        { title: "Heat Waves", file: "/sounds/bgm/Glass Animals - Heat Waves (Official Video).mp3" },
+        { title: "Feet Don't Fail Me Now", file: "/sounds/bgm/Joy Crookes - Feet Don t Fail Me Now (Official Video).mp3" }
+    ];
+
+    const audio = new Audio();
+    audio.preload = "auto";
+
+    let currentIdx = parseInt(localStorage.getItem('fifa_track_idx') || '0');
+    let isShuffle = localStorage.getItem('fifa_shuffle') === 'true';
+    let savedVol = parseFloat(localStorage.getItem('fifa_volume') || '0.35');
+    let shouldPlay = localStorage.getItem('fifa_is_playing') !== 'false';
+
+    const disc = document.getElementById('fDisc');
+    const titleEl = document.getElementById('fTitle');
+    const selectEl = document.getElementById('fSongSelect');
+    const playBtn = document.getElementById('fPlayBtn');
+    const prevBtn = document.getElementById('fPrevBtn');
+    const nextBtn = document.getElementById('fNextBtn');
+    const shuffleBtn = document.getElementById('fShuffleBtn');
+    const volInput = document.getElementById('fVolume');
+
+    audio.volume = savedVol;
+    volInput.value = savedVol;
+    if (isShuffle) shuffleBtn.classList.add('active');
+
+    function loadAndPlay(idx, startAtTime = 0, triggerPlay = true) {
+        currentIdx = (idx + tracks.length) % tracks.length;
+        const track = tracks[currentIdx];
+        audio.src = track.file;
+        titleEl.textContent = track.title;
+        selectEl.value = currentIdx;
+        localStorage.setItem('fifa_track_idx', currentIdx);
+        audio.currentTime = startAtTime;
+
+        if (triggerPlay && shouldPlay) {
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+                localStorage.setItem('fifa_is_playing', 'true');
+            }).catch(() => {
+                playBtn.textContent = '▶️';
+                disc.classList.remove('playing');
+            });
+        } else {
+            playBtn.textContent = '▶️';
+            disc.classList.remove('playing');
+        }
+    }
+
+    function playNext() {
+        let nextIdx;
+        if (isShuffle) {
+            do {
+                nextIdx = Math.floor(Math.random() * tracks.length);
+            } while (nextIdx === currentIdx && tracks.length > 1);
+        } else {
+            nextIdx = currentIdx + 1;
+        }
+        loadAndPlay(nextIdx, 0, true);
+    }
+
+    audio.addEventListener('timeupdate', () => {
+        localStorage.setItem('fifa_track_time', audio.currentTime);
+    });
+
+    audio.addEventListener('ended', playNext);
+
+    playBtn.addEventListener('click', () => {
+        if (audio.paused) {
+            shouldPlay = true;
+            localStorage.setItem('fifa_is_playing', 'true');
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+            }).catch(()=>{});
+        } else {
+            shouldPlay = false;
+            localStorage.setItem('fifa_is_playing', 'false');
+            audio.pause();
+            playBtn.textContent = '▶️';
+            disc.classList.remove('playing');
+        }
+    });
+
+    nextBtn.addEventListener('click', playNext);
+    prevBtn.addEventListener('click', () => loadAndPlay(currentIdx - 1, 0, true));
+
+    shuffleBtn.addEventListener('click', () => {
+        isShuffle = !isShuffle;
+        shuffleBtn.classList.toggle('active', isShuffle);
+        localStorage.setItem('fifa_shuffle', isShuffle);
+    });
+
+    selectEl.addEventListener('change', (e) => loadAndPlay(parseInt(e.target.value), 0, true));
+
+    volInput.addEventListener('input', (e) => {
+        audio.volume = parseFloat(e.target.value);
+        localStorage.setItem('fifa_volume', audio.volume);
+    });
+
+    // Tiếp tục phát mượt mà từ số giây của trang trước
+    const savedTime = parseFloat(localStorage.getItem('fifa_track_time') || '0');
+    loadAndPlay(currentIdx, savedTime, shouldPlay);
+
+    // Kích hoạt khi có tương tác đầu tiên
+    document.addEventListener('click', () => {
+        if (audio.paused && shouldPlay) {
+            audio.play().then(() => {
+                playBtn.textContent = '⏸️';
+                disc.classList.add('playing');
+            }).catch(()=>{});
+        }
+    }, { once: true });
+})();
+</script>

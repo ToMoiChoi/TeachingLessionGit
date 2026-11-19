@@ -1,52 +1,61 @@
-{% extends "base.html" %}
-{% block title %}Hướng dẫn{% endblock %}
-{% block content %}
-{% if is_first_visit %}
-<div class="alert success">🎉 Chào mừng HLV mới! CLB của bạn đã được tạo cùng 18 cầu thủ. Đọc nhanh hướng dẫn rồi bắt đầu mùa giải nhé.</div>
-{% endif %}
-<h1>❓ Hướng dẫn chơi</h1>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hướng dẫn chơi Football Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .tutorial-hero { text-align:center; padding:1.25rem; margin-bottom:1.5rem; background:linear-gradient(135deg,#123d27,#1e293b); border-radius:14px; }
+        .tutorial-hero .hero-emoji { display:block; font-size:4.5rem; margin-bottom:.35rem; }
+        .tutorial-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin:1rem 0 1.5rem; }
+        .tutorial-card { background:#0f172a; border:1px solid #334155; border-radius:12px; padding:1rem; text-align:center; }
+        .tutorial-card .step-emoji { font-size:3.2rem; display:block; margin-bottom:.5rem; }
+        .tutorial-card h3 { color:#fbbf24; margin-bottom:.6rem; }
+        .tutorial-card p { color:#cbd5e1; line-height:1.5; }
+        .quick-tip { font-size:1.05rem; text-align:center; color:#86efac; }
+        @media (max-width:700px) { .tutorial-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tutorial-hero">
+            <span class="hero-emoji">⚽🏆</span>
+            {% if is_first_visit %}
+            <h1>Chào mừng {{ club.name if club else 'Huấn luyện viên' }}!</h1>
+            <p>Bạn đã tạo CLB thành công. Làm theo 3 bước dưới đây để bắt đầu mùa giải.</p>
+            {% else %}
+            <h1>Hướng dẫn chơi</h1>
+            <p>Nắm nhanh cách quản lý CLB và điều khiển trận đấu.</p>
+            {% endif %}
+        </div>
 
-<div class="grid-2">
-    <div class="card">
-        <h3>1. 👕 Xếp đội hình</h3>
-        <p>Vào <b>Đội hình</b> để xem sân bóng. Chọn sơ đồ 4-3-3, 4-2-3-1 hoặc 5-3-2. Bấm hai cầu thủ để đổi chỗ, hoặc dùng
-            <b>Tự động xếp đội hình (AI)</b>: hệ thống chọn 11 người hợp vị trí nhất.</p>
-    </div>
-    <div class="card">
-        <h3>2. ▶️ Thi đấu</h3>
-        <p>Mỗi mùa có <b>18 vòng</b>. Chọn chiến thuật rồi bấm <b>Bắt đầu trận đấu</b>. Trận đấu diễn ra từng phút:
-            bàn thắng, cơ hội, cứu thua đều hiện trực tiếp.</p>
-    </div>
-    <div class="card">
-        <h3>3. 📋 Chiến thuật</h3>
-        <p><b>Tấn công</b>: tấn công +15%, phòng thủ −10%, cầu thủ mất sức nhanh hơn.<br>
-            <b>Phòng thủ</b>: phòng thủ +20%, tấn công −15%.<br>
-            <b>Cân bằng</b>: không cộng trừ. Có thể đổi ngay trong trận.</p>
-    </div>
-    <div class="card">
-        <h3>4. 💪 Thể lực & thay người</h3>
-        <p>Thể lực giảm dần theo từng phút và làm cầu thủ yếu đi. Dưới <b>65%</b> sẽ có cảnh báo, khi đó hãy thay người
-            (tối đa <b>3 lần</b> mỗi trận). Trước mỗi trận cầu thủ hồi +20 thể lực.</p>
-    </div>
-    <div class="card">
-        <h3>5. 💰 Tiền & tài trợ</h3>
-        <p>Sau mỗi trận bạn nhận tiền tài trợ hằng tuần, thắng thì có thêm thưởng. Ký hợp đồng tài trợ lớn hơn ở mục
-            <b>Tài trợ</b>. Dùng tiền để mua cầu thủ, tập luyện, tuyển trạch cầu thủ trẻ.</p>
-    </div>
-    <div class="card">
-        <h3>6. 💾 Lưu game</h3>
-        <p>Vào <b>Lưu</b>, đặt một <b>mã bí mật</b>. Lần sau chọn <b>Tải game đã lưu</b> ở trang chủ và nhập lại mã đó
-            để chơi tiếp.</p>
-    </div>
-</div>
+        <div class="tutorial-grid">
+            <section class="tutorial-card">
+                <span class="step-emoji">👥</span>
+                <h3>Bước 1: Chọn đội hình</h3>
+                <p>Vào <strong>Xếp đội hình</strong>, chọn đúng 11 cầu thủ đá chính và ưu tiên người có thể lực tốt.</p>
+            </section>
+            <section class="tutorial-card">
+                <span class="step-emoji">🎯</span>
+                <h3>Bước 2: Chọn chiến thuật</h3>
+                <p>Trước trận, chọn Cân bằng, Tấn công hoặc Phòng ngự để thay đổi cách đội chơi.</p>
+            </section>
+            <section class="tutorial-card">
+                <span class="step-emoji">⏱️</span>
+                <h3>Bước 3: Theo dõi trận</h3>
+                <p>Mỗi hiệp kéo dài 1 phút thực. Phút 45 trận dừng để bạn thay tối đa 3 cầu thủ, rồi bắt đầu hiệp 2.</p>
+            </section>
+        </div>
 
-<div class="actions mt-3">
-    {% if club %}
-    <a class="btn primary" href="{{ url_for('squad') }}">👕 Đến đội hình</a>
-    <a class="btn" href="{{ url_for('dashboard') }}">🏠 Bảng điều khiển</a>
-    {% else %}
-    <a class="btn primary" href="{{ url_for('create_club') }}">🏟️ Tạo CLB mới</a>
-    <a class="btn" href="{{ url_for('index') }}">← Trang chủ</a>
-    {% endif %}
-</div>
-{% endblock %}
+        <div class="info quick-tip">💡 Nhật ký trận đấu sẽ báo bàn thắng, cơ hội, phạm lỗi và các lần thay người theo thời gian thực.</div>
+        <div class="menu">
+            {% if session.get('club_id') %}
+            <a href="{{ url_for('select_xi') }}" class="btn primary">👥 Đi xếp đội hình ngay</a>
+            <a href="{{ url_for('dashboard') }}" class="btn secondary">🏠 Vào Dashboard</a>
+            {% else %}
+            <a href="{{ url_for('index') }}" class="btn primary">← Quay lại trang chủ</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

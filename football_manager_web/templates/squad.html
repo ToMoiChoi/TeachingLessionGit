@@ -1,228 +1,1056 @@
-{% extends "base.html" %}
-{% block title %}Đội hình{% endblock %}
-{% block head %}
-<style>
-  .squad-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
-  @media (max-width: 860px) { .squad-layout { grid-template-columns: 1fr; } }
-  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .toolbar select { width: auto; }
-  .bench { display: flex; flex-direction: column; gap: 6px; max-height: 640px; overflow-y: auto; }
-  .row-player { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 10px; align-items: center;
-                padding: 8px 10px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); cursor: pointer; }
-  .row-player.selected { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
-  .row-player img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #0a1c13; }
-  .row-player .nm { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-player .sub { color: var(--muted); font-size: 12px; }
-  .tier-ucl .dot { border-color: #b67cff !important; }
-  .tier-gold .dot { border-color: var(--gold) !important; }
-  .tier-silver .dot { border-color: #c9d3cf !important; }
-  .hint { font-size: 13px; color: var(--muted); }
-  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; display: none; max-width: 90vw; }
-  .cmp { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px 12px; font-size: 14px; }
-  .cmp .k { color: var(--muted); text-align: center; }
-  .cmp .a { text-align: right; font-weight: 700; } .cmp .b { font-weight: 700; }
-  .cmp .win { color: var(--accent); }
-</style>
-{% endblock %}
-{% block content %}
-<div class="toolbar">
-    <h1 style="margin:0">👕 Đội hình {{ club.name }}</h1>
-</div>
-<div class="stats mb-2">
-    <div class="stat"><b id="teamOvr">{{ team_ovr }}</b><span>OVR đội hình</span></div>
-    <div class="stat"><b>${{ "{:,}".format(team_value) }}</b><span>Giá trị đội hình</span></div>
-    <div class="stat"><b>{{ enriched_players|length }}</b><span>Cầu thủ</span></div>
-    <div class="stat"><b id="formLabel">{{ club.formation }}</b><span>Sơ đồ</span></div>
-</div>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh Sách Cầu Thủ - FC Mobile - {{ club.name }}</title>
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --panel-bg: rgba(8, 14, 30, 0.95);
+            --panel-border: rgba(56, 189, 248, 0.35);
+            --primary: #10b981;
+            --accent: #38bdf8;
+            --accent-cyan: #00f2fe;
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.5);
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-<div class="toolbar">
-    <label for="formation" class="muted">Sơ đồ:</label>
-    <select id="formation">
-        {% for f in ['4-3-3', '4-2-3-1', '5-3-2'] %}
-        <option value="{{ f }}" {{ 'selected' if club.formation == f }}>{{ f }}</option>
-        {% endfor %}
-    </select>
-    <button class="btn primary" id="autoBtn">🤖 Tự động xếp đội hình tối ưu</button>
-    <button class="btn" id="compareBtn">⚖️ So sánh 2 cầu thủ</button>
-    <a class="btn" href="{{ url_for('select_xi') }}">📌 Chọn 11 thủ công</a>
-    <a class="btn gold" href="{{ url_for('play_match') }}">▶️ Thi đấu</a>
-</div>
-<p class="hint">Bấm một cầu thủ rồi bấm cầu thủ khác (trên sân hoặc dự bị) để đổi chỗ. Bấm đúp để xem thẻ chi tiết.</p>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body {
+            background: radial-gradient(circle at 50% 15%, #0d1e3d 0%, #030712 90%);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+        }
 
-<div class="squad-layout">
-    <div class="card">
-        <div class="pitch" id="pitch"></div>
-    </div>
-    <div class="card">
-        <h3>🪑 Dự bị (<span id="subCount">{{ sub_players|length }}</span>)</h3>
-        <div class="bench" id="bench"></div>
-        <h3 class="mt-2">⭐ Đá chính</h3>
-        <div class="bench" id="starters"></div>
-    </div>
-</div>
+        /* Tùy chỉnh vị trí widget nhạc FIFA không bị che nút */
+        #fifa-player-widget {
+            top: 10px !important;
+            right: 180px !important;
+            bottom: auto !important;
+            left: auto !important;
+        }
 
-<div class="modal" id="cmpModal" role="dialog" aria-label="So sánh cầu thủ">
-    <div class="card">
-        <h2>⚖️ So sánh cầu thủ</h2>
-        <div id="cmpBody" class="muted">Chọn 2 cầu thủ trong danh sách (bấm lần lượt), rồi bấm “So sánh”.</div>
-        <div class="actions mt-2">
-            <button class="btn" id="cmpClose">Đóng</button>
+        /* ==================== TOP HEADER BAR ==================== */
+        .fc-header-bar {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(6, 12, 26, 0.94);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            z-index: 100;
+        }
+        .fc-header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .fc-back-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.85);
+            border: 1.5px solid #38bdf8;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .fc-back-btn:hover { background: #0284c7; transform: scale(1.06); }
+
+        .fc-screen-title {
+            font-size: 1.45rem;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .fc-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .fc-top-icon-btn {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #cbd5e1;
+            font-size: 1.1rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fc-top-icon-btn:hover { background: #1e293b; color: #fff; border-color: #38bdf8; }
+
+        /* ==================== SUB-TOOLBAR ==================== */
+        .fc-sub-toolbar {
+            height: 48px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(4, 9, 20, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 50;
+        }
+        .fc-owned-count {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .fc-owned-count span {
+            color: #4ade80;
+            font-size: 1.15rem;
+            margin-left: 6px;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .fc-sort-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .fc-sort-select {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1.5px solid #38bdf8;
+            color: #f8fafc;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+            transition: all 0.2s;
+        }
+        .fc-sort-select:hover { border-color: #00f2fe; box-shadow: 0 0 16px rgba(0, 242, 254, 0.4); }
+
+        /* ==================== MAIN WORKSPACE ==================== */
+        .fc-workspace {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            padding: 14px 20px;
+            gap: 18px;
+        }
+
+        /* ==================== LEFT: PLAYER CARD INVENTORY ==================== */
+        .fc-inventory-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fc-cards-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            grid-auto-rows: 180px;
+            gap: 14px 12px;
+            overflow-y: auto;
+            padding: 4px 8px 60px 4px;
+        }
+        .fc-cards-grid::-webkit-scrollbar { width: 5px; }
+        .fc-cards-grid::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 4px; }
+
+        /* ==================== AUTHENTIC FC MOBILE FUT CARD ==================== */
+        .fc-fut-card {
+            width: 100%;
+            height: 100%;
+            max-width: 145px;
+            max-height: 185px;
+            position: relative;
+            background: linear-gradient(145deg, #0b1e42 0%, #030816 100%);
+            border-radius: 12px;
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 12px rgba(56, 189, 248, 0.15);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            padding: 6px;
+        }
+        .fc-fut-card:hover {
+            transform: translateY(-4px) scale(1.03);
+            border-color: #38bdf8;
+            box-shadow: 0 12px 25px rgba(0,0,0,0.8), 0 0 15px rgba(56, 189, 248, 0.4);
+            z-index: 10;
+        }
+        .fc-fut-card.selected {
+            border: 2.5px solid #00f2fe !important;
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.85), inset 0 0 15px rgba(0, 242, 254, 0.4) !important;
+            transform: translateY(-4px) scale(1.04);
+            z-index: 15;
+        }
+
+        /* Card Tiers */
+        .fc-fut-card.tier-ucl {
+            border-color: #0284c7;
+            background: linear-gradient(145deg, #0c2b64 0%, #040d21 100%);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 15px rgba(2, 132, 199, 0.35);
+        }
+        .fc-fut-card.tier-gold {
+            border-color: #f59e0b;
+            background: linear-gradient(145deg, #452a03 0%, #170d01 100%);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 15px rgba(245, 158, 11, 0.35);
+        }
+        .fc-fut-card.tier-silver {
+            border-color: #94a3b8;
+            background: linear-gradient(145deg, #1e293b 0%, #090e17 100%);
+        }
+
+        /* Card Header (Diamonds, OVR & POS) */
+        .card-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 3;
+        }
+        .card-diamonds {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            font-size: 0.65rem;
+            color: #38bdf8;
+            text-shadow: 0 0 6px #00f2fe;
+        }
+        .card-ovr-pos {
+            text-align: left;
+            line-height: 1;
+        }
+        .card-ovr {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+            letter-spacing: -0.5px;
+        }
+        .card-pos {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #38bdf8;
+            margin-top: 1px;
+            text-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+        }
+
+        /* Card Avatar Art */
+        .card-avatar-box {
+            position: absolute;
+            inset: 15px 4px 38px 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .card-avatar-box svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.85));
+        }
+
+        /* Card Bottom Banner (Name, Flag, Rank Badge) */
+        .card-bottom-banner {
+            background: rgba(4, 9, 20, 0.9);
+            border-radius: 6px;
+            padding: 2px 4px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            text-align: center;
+            position: relative;
+            z-index: 4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card-player-name {
+            font-size: 0.72rem;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            letter-spacing: 0.3px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+        }
+        .card-meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 2px;
+            padding: 0 2px;
+        }
+        .card-nation-flag {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #cbd5e1;
+            background: rgba(255,255,255,0.1);
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+        .card-train-level-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #000;
+            font-size: 0.65rem;
+            font-weight: 900;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #fef08a;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+        }
+
+        /* Starter Ribbon Badge */
+        .starter-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #10b981;
+            color: #fff;
+            font-size: 0.55rem;
+            font-weight: 900;
+            padding: 1px 4px;
+            border-radius: 4px;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            z-index: 5;
+        }
+
+        /* ==================== BOTTOM-LEFT FLOATING FILTER BUTTON ==================== */
+        .fc-filter-dock {
+            position: absolute;
+            bottom: 12px;
+            left: 20px;
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .fc-filter-main-btn {
+            background: rgba(10, 20, 42, 0.95);
+            border: 2px solid #38bdf8;
+            color: #fff;
+            padding: 9px 18px;
+            border-radius: 24px;
+            font-size: 0.88rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.7), 0 0 15px rgba(56, 189, 248, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .fc-filter-main-btn:hover {
+            border-color: #00f2fe;
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .fc-filter-pills-row {
+            display: none;
+            background: rgba(6, 12, 28, 0.95);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 20px;
+            padding: 4px;
+            backdrop-filter: blur(10px);
+            gap: 4px;
+        }
+        .fc-filter-pills-row.active { display: flex; }
+        .filter-pill {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill:hover, .filter-pill.active {
+            background: #0284c7;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+        }
+
+        /* ==================== RIGHT: ACTION DRAWER (MATCHING SCREENSHOT) ==================== */
+        .fc-action-drawer {
+            width: 320px;
+            background: var(--panel-bg);
+            border: 1.5px solid var(--panel-border);
+            border-radius: 18px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.8), inset 0 0 20px rgba(56, 189, 248, 0.12);
+            overflow-y: auto;
+            position: relative;
+        }
+        .fc-action-drawer::-webkit-scrollbar { width: 4px; }
+        .fc-action-drawer::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+        /* Large Preview Card */
+        .drawer-preview-box {
+            width: 160px;
+            height: 205px;
+            position: relative;
+            margin-bottom: 4px;
+        }
+
+        /* 5 Neon Pill Action Buttons */
+        .drawer-btn-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .drawer-action-btn {
+            width: 100%;
+            padding: 11px 16px;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1.8px solid #38bdf8;
+            color: #f8fafc;
+            font-size: 0.92rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 0 10px rgba(56, 189, 248, 0.2);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .drawer-action-btn:hover {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border-color: #00f2fe;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.7), 0 0 20px rgba(0, 242, 254, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Quick Stat Summary Panel */
+        .drawer-stats-summary {
+            width: 100%;
+            background: rgba(10, 18, 36, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .stat-bar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+        .stat-bar-label { color: #94a3b8; }
+        .stat-bar-val { color: #fff; }
+        .stat-bar-track {
+            flex: 1;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 3px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8 0%, #00f2fe 100%);
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        /* ==================== MODAL OVERLAY ==================== */
+        .fc-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .fc-modal-box {
+            background: #091326;
+            border: 2px solid #38bdf8;
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.9), 0 0 30px rgba(56, 189, 248, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .modal-title { font-size: 1.25rem; font-weight: 900; color: #fff; text-align: center; }
+        .modal-body { font-size: 0.9rem; color: #cbd5e1; line-height: 1.5; text-align: center; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+        .modal-btn {
+            padding: 9px 20px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.88rem;
+            cursor: pointer;
+            border: none;
+        }
+        .modal-btn-confirm { background: #10b981; color: #fff; }
+        .modal-btn-cancel { background: #334155; color: #cbd5e1; }
+
+        /* Toast notification */
+        #toastNotice {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1.5px solid #10b981;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(16, 185, 129, 0.4);
+            font-weight: 800;
+            font-size: 0.9rem;
+            display: none;
+            z-index: 300;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== HEADER BAR ==================== -->
+    <header class="fc-header-bar">
+        <div class="fc-header-left">
+            <a href="{{ url_for('dashboard') }}" class="fc-back-btn" title="Quay về Trang Chủ">❮</a>
+            <div class="fc-screen-title">👥 CẦU THỦ</div>
+        </div>
+
+        <div class="fc-header-right">
+            <a href="{{ url_for('select_xi') }}" class="fc-top-icon-btn" title="Đội Của Tôi / Xếp Đội Hình">📋</a>
+            <a href="{{ url_for('transfer_market') }}" class="fc-top-icon-btn" title="Thị Trường Chuyển Nhượng">🛒</a>
+            <a href="{{ url_for('dashboard') }}" class="fc-top-icon-btn" title="Về Dashboard">🏠</a>
+        </div>
+    </header>
+
+    <!-- ==================== SUB-TOOLBAR ==================== -->
+    <div class="fc-sub-toolbar">
+        <div class="fc-owned-count">
+            CẦU THỦ ĐANG SỞ HỮU: <span id="ownedCount">{{ enriched_players|length }}</span>
+        </div>
+
+        <div class="fc-sort-wrapper">
+            <select class="fc-sort-select" id="sortSelect" onchange="applySorting()">
+                <option value="ovr-desc">OVR: Cao ➔ Thấp</option>
+                <option value="ovr-asc">OVR: Thấp ➔ Cao</option>
+                <option value="name-asc">Tên: A ➔ Z</option>
+                <option value="pos">Vị Trí (FW ➔ GK)</option>
+                <option value="training-desc">Cấp Huấn Luyện</option>
+                <option value="rank-desc">Cấp Thăng Hạng</option>
+                <option value="value-desc">Giá Trị Chuyển Nhượng</option>
+            </select>
         </div>
     </div>
-</div>
-<div id="toast" class="alert success"></div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-const API = {
-  swap: "{{ url_for('api_swap_squad_players') }}",
-  formation: "{{ url_for('api_change_formation') }}",
-  auto: "{{ url_for('api_auto_build_squad') }}",
-  compare: "{{ url_for('api_compare_players') }}",
-  detail: "{{ url_for('player_detail', player_id=0) }}".replace(/0$/, ''),
-  img: "{{ url_for('static', filename='images/players/') }}",
-};
-let state = {
-  formation: {{ club.formation|tojson }},
-  starting: {{ starting_players|tojson }},
-  subs: {{ sub_players|tojson }},
-};
-// Toạ độ (x%, y%) các vị trí trên sân cho từng sơ đồ, thứ tự giống auto_select_xi
-const LAYOUTS = {
-  '4-3-3':   [['GK',50,90],['LB',15,72],['CB',38,76],['CB',62,76],['RB',85,72],['LW',16,30],['CM',30,52],['CM',50,56],['CM',70,52],['RW',84,30],['ST',50,16]],
-  '4-2-3-1': [['GK',50,90],['LB',15,72],['CB',38,76],['CB',62,76],['RB',85,72],['CDM',36,58],['CDM',64,58],['LW',16,34],['CAM',50,38],['RW',84,34],['ST',50,15]],
-  '5-3-2':   [['GK',50,90],['LWB',10,62],['CB',30,76],['CB',50,79],['CB',70,76],['RWB',90,62],['CM',30,48],['CM',50,52],['CM',70,48],['ST',38,18],['ST',62,18]],
-};
-const KNOWN_IMG = { doku: 'doku.png', haaland: 'haaland.png', mbappe: 'mbappe.png', 'quang hải': 'quanghai.png', quanghai: 'quanghai.png' };
-function imgFor(p) {
-  const n = (p.name || '').toLowerCase();
-  for (const k in KNOWN_IMG) if (n.includes(k)) return API.img + KNOWN_IMG[k];
-  return API.img + 'default_avatar.png';
-}
-let selected = null;      // id cầu thủ đang chọn để đổi
-let cmpMode = false, cmpPick = [];
+    <!-- ==================== MAIN WORKSPACE ==================== -->
+    <main class="fc-workspace">
 
-function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function toast(msg, ok = true) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'alert ' + (ok ? 'success' : 'error'); t.style.display = 'block';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600);
-}
+        <!-- LEFT: INVENTORY CARD GRID -->
+        <section class="fc-inventory-area">
+            <div class="fc-cards-grid" id="cardsGrid">
+                {% for p in enriched_players %}
+                <div class="fc-fut-card {{ p.tier }} {% if loop.first %}selected{% endif %}" 
+                     id="card-{{ p.id }}" 
+                     data-id="{{ p.id }}"
+                     data-ovr="{{ p.fc_ovr }}"
+                     data-name="{{ p.name }}"
+                     data-pos="{{ p.position }}"
+                     data-training="{{ p.training_level }}"
+                     data-rank="{{ p.rank_level }}"
+                     data-value="{{ p.market_value }}"
+                     data-starter="{{ '1' if p.is_starting else '0' }}"
+                     onclick="selectPlayer({{ p.id }})">
 
-// Gán 11 cầu thủ đá chính vào các ô theo vị trí (ưu tiên đúng vị trí)
-function assignSlots() {
-  const layout = LAYOUTS[state.formation] || LAYOUTS['4-3-3'];
-  const pool = state.starting.slice();
-  const slots = layout.map(([pos, x, y]) => ({ pos, x, y, player: null }));
-  for (const s of slots) {
-    const i = pool.findIndex(p => p.position === s.pos);
-    if (i >= 0) s.player = pool.splice(i, 1)[0];
-  }
-  for (const s of slots) if (!s.player && pool.length) s.player = pool.shift();
-  return slots;
-}
+                    {% if p.is_starting %}
+                    <div class="starter-badge">ĐÁ CHÍNH</div>
+                    {% endif %}
 
-function onPick(id) {
-  if (cmpMode) {
-    if (!cmpPick.includes(id)) cmpPick.push(id);
-    render();
-    if (cmpPick.length === 2) doCompare();
-    return;
-  }
-  if (selected === null) { selected = id; render(); return; }
-  if (selected === id) { selected = null; render(); return; }
-  const a = selected; selected = null;
-  post(API.swap, { p1_id: a, p2_id: id });
-}
+                    <!-- Top Row: Diamonds + OVR/POS -->
+                    <div class="card-top-row">
+                        <div class="card-diamonds">
+                            {% for _ in range(p.rank_level) %}💎{% endfor %}
+                        </div>
+                        <div class="card-ovr-pos">
+                            <div class="card-ovr">{{ p.fc_ovr }}</div>
+                            <div class="card-pos">{{ p.position }}</div>
+                        </div>
+                    </div>
 
-function rowPlayer(p) {
-  const r = el('div', 'row-player' + ((selected === p.id || cmpPick.includes(p.id)) ? ' selected' : ''));
-  const img = el('img'); img.src = imgFor(p); img.alt = '';
-  const ovr = el('span', 'ovr' + (p.fc_ovr >= 85 ? ' gold' : ''), p.fc_ovr);
-  const mid = el('div'); mid.append(el('div', 'nm', p.name), el('div', 'sub', `${p.secondary_pos} · ${p.nationality} · ${p.age} tuổi`));
-  const pos = el('span', 'badge ' + (p.position === 'GK' ? 'gk' : 'pos'), p.position);
-  const bar = el('div', 'bar' + (p.stamina < 40 ? ' low' : p.stamina < 70 ? ' warn' : ''));
-  const fill = el('i'); fill.style.width = Math.max(0, Math.min(100, p.stamina)) + '%'; bar.append(fill); bar.title = 'Thể lực ' + Math.round(p.stamina);
-  r.append(img, ovr, mid, pos, bar);
-  r.onclick = () => onPick(p.id);
-  r.ondblclick = () => location.href = API.detail + p.id;
-  return r;
-}
+                    <!-- Avatar Box -->
+                    <div class="card-avatar-box">
+                        {{ p.avatar_svg | safe }}
+                    </div>
 
-function render() {
-  document.getElementById('formLabel').textContent = state.formation;
-  const pitch = document.getElementById('pitch'); pitch.innerHTML = '';
-  for (const s of assignSlots()) {
-    const d = el('div', 'slot ' + (s.player ? s.player.tier : ''));
-    d.style.left = s.x + '%'; d.style.top = s.y + '%';
-    if (s.player && (selected === s.player.id || cmpPick.includes(s.player.id))) d.classList.add('selected');
-    const dot = el('div', 'dot', s.player ? s.player.fc_ovr : '–');
-    const lbl = el('div', 'lbl', s.player ? `${s.pos} · ${s.player.last_name}` : s.pos);
-    d.append(dot, lbl);
-    if (s.player) {
-      d.title = `${s.player.name} (${s.player.position}) – bấm đúp để xem thẻ`;
-      d.onclick = () => onPick(s.player.id);
-      d.ondblclick = () => location.href = API.detail + s.player.id;
-    }
-    pitch.append(d);
-  }
-  const bench = document.getElementById('bench'); bench.innerHTML = '';
-  state.subs.forEach(p => bench.append(rowPlayer(p)));
-  if (!state.subs.length) bench.append(el('p', 'muted', 'Không có cầu thủ dự bị.'));
-  const st = document.getElementById('starters'); st.innerHTML = '';
-  state.starting.slice().sort((a, b) => b.fc_ovr - a.fc_ovr).forEach(p => st.append(rowPlayer(p)));
-  document.getElementById('subCount').textContent = state.subs.length;
-}
+                    <!-- Bottom Banner -->
+                    <div class="card-bottom-banner">
+                        <div class="card-player-name">{{ p.last_name }}</div>
+                        <div class="card-meta-row">
+                            <span class="card-nation-flag">{{ p.flag_code }}</span>
+                            <div class="card-train-level-badge">{{ p.training_level }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
 
-async function post(url, body) {
-  try {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
-    const d = await r.json();
-    if (!r.ok || d.error) { toast(d.error || 'Có lỗi xảy ra', false); render(); return null; }
-    if (d.starting_players) { state.starting = d.starting_players; state.subs = d.sub_players; }
-    if (d.formation) state.formation = d.formation;
-    if (d.team_ovr != null) document.getElementById('teamOvr').textContent = d.team_ovr;
-    if (d.message) toast(d.message);
-    render();
-    return d;
-  } catch (e) { toast('Không kết nối được máy chủ', false); return null; }
-}
+            <!-- Bottom-Left Floating Filter Button & Pills -->
+            <div class="fc-filter-dock">
+                <button class="fc-filter-main-btn" onclick="toggleFilterTray()">
+                    ⚙️ BỘ LỌC
+                </button>
+                <div class="fc-filter-pills-row" id="filterPillsRow">
+                    <button class="filter-pill active" onclick="setFilter('ALL', this)">TẤT CẢ</button>
+                    <button class="filter-pill" onclick="setFilter('FW', this)">TIỀN ĐẠO</button>
+                    <button class="filter-pill" onclick="setFilter('MF', this)">TIỀN VỆ</button>
+                    <button class="filter-pill" onclick="setFilter('DF', this)">HẬU VỆ</button>
+                    <button class="filter-pill" onclick="setFilter('GK', this)">THỦ MÔN</button>
+                    <button class="filter-pill" onclick="setFilter('XI', this)">ĐÁ CHÍNH</button>
+                </div>
+            </div>
+        </section>
 
-document.getElementById('formation').onchange = e => post(API.formation, { formation: e.target.value });
-document.getElementById('autoBtn').onclick = () => post(API.auto, {});
+        <!-- RIGHT: ACTION DRAWER -->
+        <aside class="fc-action-drawer" id="actionDrawer">
+            {% if enriched_players %}
+            {% set sel = enriched_players[0] %}
+            <!-- Selected Player Large Card -->
+            <div class="drawer-preview-box" id="drawerCardContainer">
+                <div class="fc-fut-card {{ sel.tier }} selected" style="width:100%; height:100%;">
+                    <div class="card-top-row">
+                        <div class="card-diamonds" id="dCardDiamonds">
+                            {% for _ in range(sel.rank_level) %}💎{% endfor %}
+                        </div>
+                        <div class="card-ovr-pos">
+                            <div class="card-ovr" id="dCardOvr">{{ sel.fc_ovr }}</div>
+                            <div class="card-pos" id="dCardPos">{{ sel.position }}</div>
+                        </div>
+                    </div>
+                    <div class="card-avatar-box" id="dCardAvatar">
+                        {{ sel.avatar_svg | safe }}
+                    </div>
+                    <div class="card-bottom-banner">
+                        <div class="card-player-name" id="dCardName">{{ sel.name }}</div>
+                        <div class="card-meta-row">
+                            <span class="card-nation-flag" id="dCardNation">{{ sel.flag_code }}</span>
+                            <div class="card-train-level-badge" id="dCardTrainLvl">{{ sel.training_level }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-// ---------- So sánh ----------
-const modal = document.getElementById('cmpModal');
-document.getElementById('compareBtn').onclick = () => {
-  cmpMode = !cmpMode; cmpPick = []; selected = null;
-  document.getElementById('compareBtn').textContent = cmpMode ? '✖ Huỷ so sánh' : '⚖️ So sánh 2 cầu thủ';
-  if (cmpMode) toast('Bấm chọn 2 cầu thủ để so sánh');
-  render();
-};
-document.getElementById('cmpClose').onclick = () => { modal.classList.remove('open'); };
-async function doCompare() {
-  const [a, b] = cmpPick;
-  cmpMode = false; cmpPick = [];
-  document.getElementById('compareBtn').textContent = '⚖️ So sánh 2 cầu thủ';
-  render();
-  const r = await fetch(API.compare, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p1_id: a, p2_id: b }) });
-  const d = await r.json();
-  const body = document.getElementById('cmpBody'); body.innerHTML = '';
-  if (!d.success) { body.textContent = d.error || 'Không so sánh được'; modal.classList.add('open'); return; }
-  const p1 = d.player1, p2 = d.player2;
-  const g = el('div', 'cmp');
-  g.append(el('div', 'a', p1.name), el('div', 'k', 'vs'), el('div', 'b', p2.name));
-  for (const [k, label] of [['fc_ovr', 'OVR'], ['pac', 'Tốc độ'], ['sho', 'Sút'], ['pas', 'Chuyền'], ['dri', 'Rê bóng'], ['def', 'Phòng thủ'], ['phy', 'Thể chất'], ['goals', 'Bàn thắng'], ['assists', 'Kiến tạo'], ['market_value', 'Giá trị ($)']]) {
-    const x = p1[k] || 0, y = p2[k] || 0;
-    const fmt = v => Number(v).toLocaleString('vi-VN');
-    g.append(el('div', 'a' + (x > y ? ' win' : ''), fmt(x)), el('div', 'k', label), el('div', 'b' + (y > x ? ' win' : ''), fmt(y)));
-  }
-  body.append(g);
-  modal.classList.add('open');
-}
-modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+            <!-- 5 Pill Action Buttons -->
+            <div class="drawer-btn-group">
+                <a href="/player/{{ sel.id }}" id="btnDetail" class="drawer-action-btn">
+                    🔍 CHI TIẾT
+                </a>
 
-render();
-</script>
-{% endblock %}
+                <button class="drawer-action-btn" onclick="openTrainModal()">
+                    ⚡ HUẤN LUYỆN
+                </button>
+
+                <button class="drawer-action-btn" onclick="openRankUpModal()">
+                    ⭐ THĂNG HẠNG
+                </button>
+
+                <button class="drawer-action-btn" onclick="openSkillBoostModal()">
+                    🔥 ĐIỂM KỸ NĂNG
+                </button>
+
+                <button class="drawer-action-btn" onclick="openTransferModal()">
+                    🔄 CHUYỂN ĐIỂM HUẤN LUYỆN
+                </button>
+            </div>
+
+            <!-- Quick Stat Gauges -->
+            <div class="drawer-stats-summary" id="drawerStatsBox">
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Tốc độ (PAC)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barPac" style="width: {{ [sel.pac, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valPac">{{ sel.pac }}</span>
+                </div>
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Dứt điểm (SHO)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barSho" style="width: {{ [sel.sho, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valSho">{{ sel.sho }}</span>
+                </div>
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Chuyền bóng (PAS)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barPas" style="width: {{ [sel.pas, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valPas">{{ sel.pas }}</span>
+                </div>
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Rê bóng (DRI)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barDri" style="width: {{ [sel.dri, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valDri">{{ sel.dri }}</span>
+                </div>
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Phòng thủ (DEF)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barDef" style="width: {{ [sel.def, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valDef">{{ sel.def }}</span>
+                </div>
+                <div class="stat-bar-row">
+                    <span class="stat-bar-label">Thể lực (PHY)</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill" id="barPhy" style="width: {{ [sel.phy, 100]|min }}%;"></div></div>
+                    <span class="stat-bar-val" id="valPhy">{{ sel.phy }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </aside>
+
+    </main>
+
+    <!-- ==================== GENERIC INTERACTIVE MODAL ==================== -->
+    <div class="fc-modal-backdrop" id="actionModalBackdrop">
+        <div class="fc-modal-box">
+            <h3 class="modal-title" id="modalTitle">Tiêu đề</h3>
+            <div class="modal-body" id="modalBody">Nội dung xác nhận thao tác...</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Hủy</button>
+                <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="confirmModalAction()">Xác Nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toastNotice"></div>
+
+    <script>
+        // Danh sách dữ liệu cầu thủ từ Flask
+        const playersData = {{ enriched_players | tojson | safe }};
+        let selectedPlayerId = playersData.length > 0 ? playersData[0].id : null;
+        let currentFilter = 'ALL';
+        let modalActionType = null;
+
+        // Âm thanh tương tác SFX
+        const sfxClick = new Audio('/sounds/sfx/Click.wav');
+        const sfxWhistle = new Audio('/sounds/sfx/whistle.wav');
+
+        function playSound(audio) {
+            try {
+                audio.currentTime = 0;
+                audio.play().catch(()=>{});
+            } catch(e){}
+        }
+
+        function showToast(msg, isSuccess=true) {
+            const toast = document.getElementById('toastNotice');
+            toast.textContent = msg;
+            toast.style.borderColor = isSuccess ? '#10b981' : '#ef4444';
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3200);
+        }
+
+        // Chọn cầu thủ & cập nhật Action Drawer
+        function selectPlayer(id) {
+            playSound(sfxClick);
+            selectedPlayerId = id;
+            const p = playersData.find(x => x.id === id);
+            if (!p) return;
+
+            // Đổi class selected ở grid
+            document.querySelectorAll('.fc-fut-card').forEach(c => c.classList.remove('selected'));
+            const cardEl = document.getElementById(`card-${id}`);
+            if (cardEl) cardEl.classList.add('selected');
+
+            // Cập nhật Drawer
+            document.getElementById('btnDetail').href = `/player/${p.id}`;
+            document.getElementById('dCardOvr').textContent = p.fc_ovr;
+            document.getElementById('dCardPos').textContent = p.position;
+            document.getElementById('dCardName').textContent = p.name;
+            document.getElementById('dCardNation').textContent = p.flag_code;
+            document.getElementById('dCardTrainLvl').textContent = p.training_level;
+            document.getElementById('dCardAvatar').innerHTML = p.avatar_svg;
+
+            // Diamonds
+            let diamondsHtml = '';
+            for (let i = 0; i < p.rank_level; i++) diamondsHtml += '💎';
+            document.getElementById('dCardDiamonds').innerHTML = diamondsHtml;
+
+            // Gauges
+            document.getElementById('valPac').textContent = p.pac;
+            document.getElementById('barPac').style.width = `${Math.min(100, p.pac)}%`;
+            document.getElementById('valSho').textContent = p.sho;
+            document.getElementById('barSho').style.width = `${Math.min(100, p.sho)}%`;
+            document.getElementById('valPas').textContent = p.pas;
+            document.getElementById('barPas').style.width = `${Math.min(100, p.pas)}%`;
+            document.getElementById('valDri').textContent = p.dri;
+            document.getElementById('barDri').style.width = `${Math.min(100, p.dri)}%`;
+            document.getElementById('valDef').textContent = p.def;
+            document.getElementById('barDef').style.width = `${Math.min(100, p.def)}%`;
+            document.getElementById('valPhy').textContent = p.phy;
+            document.getElementById('barPhy').style.width = `${Math.min(100, p.phy)}%`;
+        }
+
+        // Toggle Thanh Bộ Lọc
+        function toggleFilterTray() {
+            playSound(sfxClick);
+            const row = document.getElementById('filterPillsRow');
+            row.classList.toggle('active');
+        }
+
+        // Áp dụng bộ lọc
+        function setFilter(type, btn) {
+            playSound(sfxClick);
+            currentFilter = type;
+            document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const fwPos = ['ST', 'CF', 'LW', 'RW'];
+            const mfPos = ['CAM', 'CM', 'CDM', 'LM', 'RM'];
+            const dfPos = ['CB', 'LB', 'RB', 'LWB', 'RWB'];
+
+            let visibleCount = 0;
+            document.querySelectorAll('.fc-cards-grid .fc-fut-card').forEach(card => {
+                const pos = card.dataset.pos;
+                const isStarter = card.dataset.starter === '1';
+                let match = false;
+
+                if (type === 'ALL') match = true;
+                else if (type === 'FW' && fwPos.includes(pos)) match = true;
+                else if (type === 'MF' && mfPos.includes(pos)) match = true;
+                else if (type === 'DF' && dfPos.includes(pos)) match = true;
+                else if (type === 'GK' && pos === 'GK') match = true;
+                else if (type === 'XI' && isStarter) match = true;
+
+                card.style.display = match ? 'flex' : 'none';
+                if (match) visibleCount++;
+            });
+            document.getElementById('ownedCount').textContent = visibleCount;
+        }
+
+        // Sắp xếp thẻ cầu thủ
+        function applySorting() {
+            playSound(sfxClick);
+            const sortMode = document.getElementById('sortSelect').value;
+            const grid = document.getElementById('cardsGrid');
+            const cards = Array.from(grid.querySelectorAll('.fc-fut-card'));
+
+            cards.sort((a, b) => {
+                if (sortMode === 'ovr-desc') return parseInt(b.dataset.ovr) - parseInt(a.dataset.ovr);
+                if (sortMode === 'ovr-asc') return parseInt(a.dataset.ovr) - parseInt(b.dataset.ovr);
+                if (sortMode === 'name-asc') return a.dataset.name.localeCompare(b.dataset.name);
+                if (sortMode === 'training-desc') return parseInt(b.dataset.training) - parseInt(a.dataset.training);
+                if (sortMode === 'rank-desc') return parseInt(b.dataset.rank) - parseInt(a.dataset.rank);
+                if (sortMode === 'value-desc') return parseInt(b.dataset.value) - parseInt(a.dataset.value);
+                if (sortMode === 'pos') {
+                    const order = {'ST':1,'CF':2,'LW':3,'RW':4,'CAM':5,'CM':6,'CDM':7,'LM':8,'RM':9,'LB':10,'RB':11,'CB':12,'GK':13};
+                    return (order[a.dataset.pos]||99) - (order[b.dataset.pos]||99);
+                }
+                return 0;
+            });
+
+            cards.forEach(c => grid.appendChild(c));
+        }
+
+        // ==================== CÁC HÀM AJAX THAO TÁC 5 NÚT BẤM ====================
+        function openTrainModal() {
+            const p = playersData.find(x => x.id === selectedPlayerId);
+            if (!p) return;
+            modalActionType = 'train';
+            document.getElementById('modalTitle').textContent = `⚡ Huấn Luyện Cầu Thủ`;
+            document.getElementById('modalBody').innerHTML = `
+                Bạn có muốn nâng cấp huấn luyện cho <strong>${p.name}</strong>?<br>
+                Cấp hiện tại: <strong>${p.training_level}/30</strong> ➔ <span style="color:#4ade80;">${p.training_level + 1}</span><br>
+                <span style="color:#f59e0b;">Chi phí: 120,000 $</span>
+            `;
+            document.getElementById('actionModalBackdrop').style.display = 'flex';
+        }
+
+        function openRankUpModal() {
+            const p = playersData.find(x => x.id === selectedPlayerId);
+            if (!p) return;
+            modalActionType = 'rankup';
+            document.getElementById('modalTitle').textContent = `⭐ Thăng Hạng Thẻ Cầu Thủ`;
+            document.getElementById('modalBody').innerHTML = `
+                Thăng hạng thêm 1 Kim Cương cho <strong>${p.name}</strong>?<br>
+                Hạng hiện tại: <strong>${p.rank_level}/5 💎</strong> ➔ <span style="color:#4ade80;">${p.rank_level + 1} 💎</span><br>
+                Chỉ số OVR tăng: <strong>+2 OVR</strong> và +2 tất cả thuộc tính!<br>
+                <span style="color:#f59e0b;">Chi phí: ${(400000 * p.rank_level).toLocaleString()} $</span>
+            `;
+            document.getElementById('actionModalBackdrop').style.display = 'flex';
+        }
+
+        function openSkillBoostModal() {
+            const p = playersData.find(x => x.id === selectedPlayerId);
+            if (!p) return;
+            modalActionType = 'skill_boost';
+            document.getElementById('modalTitle').textContent = `🔥 Nâng Cấp Điểm Kỹ Năng`;
+            document.getElementById('modalBody').innerHTML = `
+                Nâng cấp Điểm Kỹ Năng cho <strong>${p.name}</strong>?<br>
+                Cấp kỹ năng: <strong>+${p.skill_boost}</strong> ➔ <span style="color:#00f2fe;">+${p.skill_boost + 1}</span><br>
+                Tăng cường tốc độ phản xạ và nhạy bén khi xử lý bóng!<br>
+                <span style="color:#f59e0b;">Chi phí: ${(250000 * p.skill_boost).toLocaleString()} $</span>
+            `;
+            document.getElementById('actionModalBackdrop').style.display = 'flex';
+        }
+
+        function openTransferModal() {
+            const p = playersData.find(x => x.id === selectedPlayerId);
+            if (!p) return;
+            modalActionType = 'transfer_pick';
+            let options = '';
+            playersData.forEach(pl => {
+                if (pl.id !== p.id && pl.training_level > 1) {
+                    options += `<option value="${pl.id}">${pl.name} (Cấp ${pl.training_level})</option>`;
+                }
+            });
+
+            if (!options) {
+                showToast("Không có cầu thủ khác có cấp huấn luyện để chuyển!", false);
+                return;
+            }
+
+            document.getElementById('modalTitle').textContent = `🔄 Chuyển Điểm Huấn Luyện`;
+            document.getElementById('modalBody').innerHTML = `
+                Chọn cầu thủ hiến tặng cấp huấn luyện cho <strong>${p.name}</strong>:<br><br>
+                <select id="transferDonorSelect" style="width:100%; padding:8px 12px; background:#1e293b; color:#fff; border:1px solid #38bdf8; border-radius:8px; font-weight:700;">
+                    ${options}
+                </select><br><br>
+                <span style="color:#f59e0b;">Phí dịch vụ chuyển nhượng: 150,000 $</span>
+            `;
+            document.getElementById('actionModalBackdrop').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('actionModalBackdrop').style.display = 'none';
+        }
+
+        async function confirmModalAction() {
+            closeModal();
+            playSound(sfxWhistle);
+
+            if (modalActionType === 'train') {
+                const res = await fetch('/api/train_player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ player_id: selectedPlayerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    updatePlayerData(data.player);
+                } else {
+                    showToast(data.error, false);
+                }
+            } else if (modalActionType === 'rankup') {
+                const res = await fetch('/api/rankup_player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ player_id: selectedPlayerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    updatePlayerData(data.player);
+                } else {
+                    showToast(data.error, false);
+                }
+            } else if (modalActionType === 'skill_boost') {
+                const res = await fetch('/api/skill_boost_player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ player_id: selectedPlayerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    updatePlayerData(data.player);
+                } else {
+                    showToast(data.error, false);
+                }
+            } else if (modalActionType === 'transfer_pick') {
+                const donorId = parseInt(document.getElementById('transferDonorSelect').value);
+                const res = await fetch('/api/transfer_training', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ source_player_id: donorId, target_player_id: selectedPlayerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    updatePlayerData(data.source_player);
+                    updatePlayerData(data.target_player);
+                } else {
+                    showToast(data.error, false);
+                }
+            }
+        }
+
+        function updatePlayerData(updated) {
+            const idx = playersData.findIndex(x => x.id === updated.id);
+            if (idx !== -1) {
+                playersData[idx] = updated;
+                const card = document.getElementById(`card-${updated.id}`);
+                if (card) {
+                    card.dataset.ovr = updated.fc_ovr;
+                    card.dataset.training = updated.training_level;
+                    card.dataset.rank = updated.rank_level;
+                    card.querySelector('.card-ovr').textContent = updated.fc_ovr;
+                    card.querySelector('.card-train-level-badge').textContent = updated.training_level;
+                    let dia = '';
+                    for (let i = 0; i < updated.rank_level; i++) dia += '💎';
+                    card.querySelector('.card-diamonds').innerHTML = dia;
+                }
+                if (selectedPlayerId === updated.id) {
+                    selectPlayer(updated.id);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

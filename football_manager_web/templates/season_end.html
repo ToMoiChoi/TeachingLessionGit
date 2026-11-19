@@ -1,25 +1,159 @@
-{% extends "base.html" %}
-{% block title %}Tổng kết mùa giải{% endblock %}
-{% block container_class %}narrow{% endblock %}
-{% block content %}
-<div class="card center">
-    <h1>🏁 Tổng kết mùa giải</h1>
-    <p style="font-size:17px">{{ message }}</p>
-    {% if club is defined and club %}
-    <div class="stats mt-2">
-        <div class="stat"><b>{{ club.season }}</b><span>Mùa giải mới</span></div>
-        <div class="stat"><b>{{ {'Hang 1': 'Hạng 1', 'Hang 2': 'Hạng 2'}.get(club.league, club.league) }}</b><span>Giải đấu</span></div>
-        <div class="stat"><b>${{ "{:,}".format(club.money) }}</b><span>Ngân sách (đã trừ lương)</span></div>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tổng Kết Mùa Giải - {{ club.name if club else 'CLB' }}</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg-dark: #050811;
+            --card-bg: #0f172a;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.5);
+            --accent: #38bdf8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #030712 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .celebration-card {
+            background: var(--card-bg);
+            border: 2px solid var(--gold);
+            border-radius: 24px;
+            max-width: 680px;
+            width: 100%;
+            padding: 40px 30px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(245, 158, 11, 0.3), 0 20px 40px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trophy-badge {
+            font-size: 5.5rem;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 10px 20px var(--gold-glow));
+            animation: bounce 2s infinite ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-12px) scale(1.05); }
+        }
+
+        .title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 12px;
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .message-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 26px;
+        }
+        .message-text {
+            font-size: 1.25rem;
+            color: #fff;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .sub-text {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .reward-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        .reward-item {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid #1e293b;
+            padding: 14px;
+            border-radius: 12px;
+        }
+        .reward-item span { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .reward-item strong { font-size: 1.2rem; color: #34d399; }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            padding: 16px 36px;
+            border-radius: 14px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-decoration: none;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s;
+        }
+        .btn-action:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+<div class="celebration-card">
+    <div class="trophy-badge">🏆</div>
+    <h1 class="title">TỔNG KẾT MÙA GIẢI</h1>
+
+    <div class="message-box">
+        <div class="message-text">{{ message }}</div>
+        <div class="sub-text">Toàn bộ cầu thủ đã được nhận lương mùa giải và sẵn sàng bước vào hành trình mới.</div>
     </div>
-    <div class="actions center mt-3">
-        <a class="btn primary" href="{{ url_for('dashboard') }}">▶️ Bắt đầu mùa mới</a>
-        <a class="btn" href="{{ url_for('trophy_room') }}">🏅 Phòng danh hiệu</a>
-    </div>
-    {% else %}
-    <div class="actions center mt-3">
-        <a class="btn primary" href="{{ url_for('create_club') }}">🏟️ Tạo CLB mới</a>
-        <a class="btn" href="{{ url_for('index') }}">🏠 Trang chủ</a>
+
+    {% if club %}
+    <div class="reward-grid">
+        <div class="reward-item">
+            <span>Giải Đấu Mùa Tới</span>
+            <strong style="color:var(--gold);">{{ club.league }}</strong>
+        </div>
+        <div class="reward-item">
+            <span>Ngân Sách Hiện Có</span>
+            <strong>${{ "{:,}".format(club.money) }}</strong>
+        </div>
     </div>
     {% endif %}
+
+    <div>
+        <a href="{{ url_for('dashboard') }}" class="btn-action">
+            🚀 Bắt Đầu Mùa Giải Mới
+        </a>
+    </div>
 </div>
-{% endblock %}
+
+<script>
+// Tự động phát tiếng reo hò khán đài khi vào màn hình trao giải
+document.addEventListener('DOMContentLoaded', () => {
+    const cheer = new Audio('/sounds/bgm/Fan cherring.mp3');
+    cheer.volume = 0.5;
+    cheer.play().catch(()=>{});
+});
+</script>
+
+</body>
+</html>

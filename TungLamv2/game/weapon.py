@@ -14,7 +14,7 @@ class Weapon:
         reserve=75,
         price=0,
         category="RIFLE",
-        fire_mode="Tự động hoàn toàn",
+        fire_mode="Full-Auto",
         damage_table=None,
         reload_time=1.8,
         description=""
@@ -120,13 +120,13 @@ CLASSIC = Weapon(
     reserve=60,
     price=0,
     category="PISTOL",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (30.0, {"body": 26, "head": 78, "legs": 22}),
         (50.0, {"body": 22, "head": 66, "legs": 18}),
     ],
     reload_time=1.5,
-    description="Súng lục cơ bản, miễn phí"
+    description="Basic pistol, free"
 )
 classic = CLASSIC
 
@@ -138,13 +138,13 @@ GHOST = Weapon(
     reserve=60,
     price=500,
     category="PISTOL",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (30.0, {"body": 30, "head": 105, "legs": 26}),
         (50.0, {"body": 25, "head": 88, "legs": 21}),
     ],
     reload_time=1.5,
-    description="Súng lục giảm thanh chính xác cao"
+    description="Silenced high-accuracy pistol"
 )
 ghost = GHOST
 
@@ -156,13 +156,13 @@ SHERIFF = Weapon(
     reserve=36,
     price=800,
     category="PISTOL",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (30.0, {"body": 55, "head": 160, "legs": 47}),
         (50.0, {"body": 50, "head": 145, "legs": 43}),
     ],
     reload_time=1.8,
-    description="Súng lục ổ quay uy lực lớn"
+    description="High-damage heavy revolver"
 )
 sheriff = SHERIFF
 
@@ -179,13 +179,13 @@ MP5 = Weapon(
     reserve=90,
     price=1600,
     category="SMG",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (20.0, {"body": 26, "head": 78, "legs": 22}),
         (50.0, {"body": 22, "head": 66, "legs": 18}),
     ],
     reload_time=1.7,
-    description="Tiểu liên tốc độ bắn cao, giảm giãn tâm"
+    description="High fire-rate SMG with low recoil"
 )
 mp5 = MP5
 
@@ -197,13 +197,13 @@ UMP = Weapon(
     reserve=80,
     price=1000,
     category="SMG",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (20.0, {"body": 27, "head": 67, "legs": 23}),
         (50.0, {"body": 25, "head": 62, "legs": 21}),
     ],
     reload_time=1.6,
-    description="Tiểu liên xả đạn cực nhanh 18 viên/giây"
+    description="Rapid-fire SMG (18 rounds/sec)"
 )
 ump = UMP
 
@@ -220,14 +220,14 @@ M014 = Weapon(
     reserve=25,
     price=900,
     category="SHOTGUN",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (8.0, {"body": 22, "head": 44, "legs": 19}),
         (12.0, {"body": 17, "head": 34, "legs": 14}),
         (50.0, {"body": 9, "head": 18, "legs": 8}),
     ],
     reload_time=2.2,
-    description="Shotgun bán tự động cự ly gần"
+    description="Close-range semi-auto shotgun"
 )
 m014 = M014
 
@@ -239,14 +239,14 @@ MAG7 = Weapon(
     reserve=28,
     price=1500,
     category="SHOTGUN",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (10.0, {"body": 17, "head": 34, "legs": 14}),
         (10.0, {"body": 13, "head": 26, "legs": 11}),
         (50.0, {"body": 10, "head": 20, "legs": 9}),
     ],
     reload_time=2.0,
-    description="Shotgun tự động 7 viên"
+    description="High-capacity 7-round shotgun"
 )
 mag7 = MAG7
 MAG_7 = MAG7
@@ -265,12 +265,12 @@ AK47 = Weapon(
     reserve=75,
     price=2900,
     category="RIFLE",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (50.0, {"body": 40, "head": 160, "legs": 34}),
     ],
     reload_time=1.9,
-    description="Súng trường uy lực, One-shot Headshot"
+    description="High-damage assault rifle, One-shot Headshot"
 )
 ak47 = AK47
 AK_47 = AK47
@@ -285,12 +285,12 @@ VANDAL = Weapon(
     reserve=75,
     price=2900,
     category="RIFLE",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (50.0, {"body": 40, "head": 160, "legs": 34}),
     ],
     reload_time=1.9,
-    description="Súng trường Vandal uy lực, One-shot Headshot"
+    description="High-damage Vandal rifle, One-shot Headshot"
 )
 vandal = VANDAL
 
@@ -302,14 +302,14 @@ M416 = Weapon(
     reserve=90,
     price=2900,
     category="RIFLE",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (15.0, {"body": 39, "head": 156, "legs": 33}),
         (30.0, {"body": 35, "head": 140, "legs": 29}),
         (50.0, {"body": 31, "head": 124, "legs": 26}),
     ],
     reload_time=1.8,
-    description="Súng trường tốc bắn nhanh 30 viên ổn định"
+    description="Fast fire-rate 30-round rifle, stable recoil"
 )
 m416 = M416
 
@@ -322,14 +322,14 @@ PHANTOM = Weapon(
     reserve=90,
     price=2900,
     category="RIFLE",
-    fire_mode="Tự động hoàn toàn",
+    fire_mode="Full-Auto",
     damage_table=[
         (15.0, {"body": 39, "head": 156, "legs": 33}),
         (30.0, {"body": 35, "head": 140, "legs": 29}),
         (50.0, {"body": 31, "head": 124, "legs": 26}),
     ],
     reload_time=1.8,
-    description="Súng trường Phantom tốc bắn nhanh, ổn định"
+    description="Fast fire-rate Phantom rifle, stable recoil"
 )
 phantom = PHANTOM
 
@@ -341,12 +341,12 @@ GUARDIAN = Weapon(
     reserve=36,
     price=2700,
     category="RIFLE",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (50.0, {"body": 65, "head": 195, "legs": 49}),
     ],
     reload_time=2.0,
-    description="Súng trường bán tự động sát thương khủng"
+    description="Semi-auto rifle with massive damage"
 )
 guardian = GUARDIAN
 
@@ -363,12 +363,12 @@ AWM = Weapon(
     reserve=15,
     price=4500,
     category="SNIPER",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (50.0, {"body": 150, "head": 255, "legs": 120}),
     ],
     reload_time=2.5,
-    description="Súng tỉa hủy diệt, One-shot Body"
+    description="Devastating sniper rifle, One-shot Body"
 )
 awm = AWM
 
@@ -380,12 +380,12 @@ M24 = Weapon(
     reserve=15,
     price=1100,
     category="SNIPER",
-    fire_mode="Bán tự động",
+    fire_mode="Semi-Auto",
     damage_table=[
         (50.0, {"body": 101, "head": 202, "legs": 85}),
     ],
     reload_time=2.2,
-    description="Súng tỉa hạng nhẹ cơ động, giá rẻ"
+    description="Lightweight mobile sniper rifle, low cost"
 )
 m24 = M24
 
@@ -402,12 +402,12 @@ KNIFE = Weapon(
     reserve=0,
     price=0,
     category="MELEE",
-    fire_mode="Cận chiến",
+    fire_mode="Melee",
     damage_table=[
         (8.0, {"body": 50, "head": 50, "legs": 50}),
     ],
     reload_time=0.0,
-    description="Dao cận chiến: Chuột trái 50, Chuột phải 80 sát thương (tầm 8m)"
+    description="Melee knife: Left-click 50, Right-click 80 damage (8m range)"
 )
 knife = KNIFE
 
