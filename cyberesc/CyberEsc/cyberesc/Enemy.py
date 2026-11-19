@@ -464,7 +464,7 @@ class Boss(pygame.sprite.Sprite):
         dist = math.hypot(dx, dy)
 
         if dist <= self.detect_range and self.hp > 0:
-            bar_w, bar_h = 420, 20
+            bar_w, bar_h = 360, 20
             bar_x = (screen.get_width() - bar_w) // 2
             bar_y = 20
 

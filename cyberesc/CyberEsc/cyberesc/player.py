@@ -267,7 +267,16 @@ class Player(pygame.sprite.Sprite):
                 screen.blit(gun_img, (gun_x, gun_y))
 
         # 5. Mũ / Phụ kiện (Cosmetics)
-        if self.head_visual == "HELMET":
+        if self.head_visual == "VISOR":
+            pygame.draw.line(screen, CYBER_BLUE, (cx - 9, head_y - 1), (cx + 9, head_y - 1), 4)
+            pygame.draw.line(screen, WHITE, (cx + (2 if self.facing_right else -6), head_y - 2),
+                             (cx + (6 if self.facing_right else -2), head_y - 2), 1)
+        elif self.head_visual == "HALO":
+            pygame.draw.ellipse(screen, (255, 230, 100), (cx - 11, head_y - 20, 22, 7), 2)
+        elif self.head_visual == "HORNS":
+            pygame.draw.polygon(screen, (255, 40, 90), [(cx - 7, head_y - 5), (cx - 12, head_y - 17), (cx - 3, head_y - 7)])
+            pygame.draw.polygon(screen, (255, 40, 90), [(cx + 7, head_y - 5), (cx + 12, head_y - 17), (cx + 3, head_y - 7)])
+        elif self.head_visual == "HELMET":
             pygame.draw.arc(screen, CYBER_PINK, (cx - 10, head_y - 12, 20, 15), 0, math.pi, 3)
         elif self.head_visual == "CROWN":
             pygame.draw.polygon(screen, CYBER_YELLOW, [

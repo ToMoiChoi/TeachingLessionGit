@@ -1,20 +1,10 @@
-import pygame
+"""Giữ tương thích với code cũ: Sounds.play("ten_file.wav") -> dùng bộ phát có bộ nhớ đệm."""
 import os
+import sys
 
-# 1. Khoi tao am thanh
-pygame.mixer.init()
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sfx  # noqa: E402
 
-# Thu muc noi sound.py dang dung
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 2. Ham phat am thanh tu file
 def play(file_name):
-    # Tim file trong thu muc sounds/
-    path = os.path.join(BASE_DIR, "sounds", file_name)
-    if not os.path.exists(path):
-        path = file_name # Thu duong dan nguoi dung truyen
-
-    # Phat am thanh
-    print(f">> Dang phat am thanh: {file_name}")
-    sound = pygame.mixer.Sound(path)
-    sound.play()
+    sfx.play(file_name)

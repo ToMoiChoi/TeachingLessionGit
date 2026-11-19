@@ -24,6 +24,9 @@ class GameEngine:
     def render(self):
         self.layout.render(self.gameplay)
 
+    def save_progress(self):
+        self.gameplay.save_progress()
+
     def update_and_render(self):
         self.gameplay.update_game_logic()
         self.layout.render(self.gameplay)

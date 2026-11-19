@@ -6,6 +6,7 @@ from config import CYBER_YELLOW, CYBER_PINK, CYBER_BLUE, ORANGE
 # --- BẢNG MÀU VÀ NGUYÊN MẪU MODEL VŨ KHÍ (PIXEL ART) ---
 COLOR_MAP = {
     '#': (20, 20, 25),       # Viền ngoài
+    'C': (0, 220, 255),     # Lõi năng lượng
     'X': (220, 220, 235),   # Thân súng kim loại
     'D': (100, 105, 115),   # Tay cầm / Chi tiết tối
     'G': (70, 75, 85),      # Ốp lót dưới
@@ -49,6 +50,32 @@ ASSAULT_RIFLE_PIXELS = [
     "..##....................",
 ]
 
+LASER_PIXELS = [
+    "..........................",
+    "...######.................",
+    "..#XXXXXX################.",
+    ".#XXCCCCXXXXXXXXXXXXXXXXC#",
+    ".#XXCCCCXXXXXXXXXXXXXXXXC#",
+    "..#XXXXXX################.",
+    "...#DD#GGGG#..............",
+    "...#DD#####...............",
+    "...#DD#...................",
+    "....##....................",
+]
+
+GRENADE_PIXELS = [
+    "......................",
+    "...########...........",
+    "..#XXXXXXXX##########.",
+    ".#XXGGGGGGXXXXXXXXXXX#",
+    ".#XXGGGGGGXXX#######X#",
+    ".#XXGGGGGGXXX#.....#X#",
+    "..#XXXXXXXX##########.",
+    "...#DD#..#DD#.........",
+    "...#DD#..####.........",
+    "....##................",
+]
+
 def create_weapon_surface(pixel_data, scale=2, palette=COLOR_MAP):
     height = len(pixel_data)
     width = max(len(row) for row in pixel_data)
@@ -78,6 +105,26 @@ class Bullet(pygame.sprite.Sprite):
             self.kill()
 
 
+class Grenade(Bullet):
+    """Lựu đạn bay theo đường cong, nổ khi chạm đất / quái (gameplay xử lý vụ nổ)."""
+    explosive = True
+
+    def __init__(self, x, y, dx, dy, damage):
+        super().__init__(x, y, dx, dy, damage=damage, color=(120, 255, 90), size=(10, 10))
+        self.fx, self.fy = float(x), float(y)
+        self.radius = 95
+        self.spin = 0
+
+    def update(self):
+        self.dy += 0.38
+        self.fx += self.dx
+        self.fy += self.dy
+        self.rect.x, self.rect.y = int(self.fx), int(self.fy)
+        self.spin += 1
+        if self.rect.x < -100 or self.rect.x > 2500 or self.rect.y > 700:
+            self.kill()
+
+
 class Weapon:
     def __init__(self, name, damage, fire_rate, ammo_cost, weapon_type="BLASTER", max_ammo=18):
         self.name = name
@@ -96,6 +143,10 @@ class Weapon:
             self.image = create_weapon_surface(SHOTGUN_PIXELS, scale=2)
         elif self.type == "ASSAULT_RIFLE":
             self.image = create_weapon_surface(ASSAULT_RIFLE_PIXELS, scale=2)
+        elif self.type == "LASER":
+            self.image = create_weapon_surface(LASER_PIXELS, scale=2)
+        elif self.type == "GRENADE":
+            self.image = create_weapon_surface(GRENADE_PIXELS, scale=2)
         else:
             self.image = create_weapon_surface(PISTOL_PIXELS, scale=2)
 
@@ -145,11 +196,29 @@ class Weapon:
             bullet = Bullet(x, y, p_dx, p_dy, damage=total_dmg, color=CYBER_PINK, size=(12, 3))
             bullet_group.add(bullet)
 
+        # 4. LASER: tia xuyên thấu tức thời (gameplay tính sát thương theo đường thẳng)
+        elif self.type == "LASER":
+            self.last_beam = (x, y, dir_x, dir_y, total_dmg)
+
+        # 5. GRENADE: lựu đạn bay vòng cung
+        elif self.type == "GRENADE":
+            speed = 11
+            bullet_group.add(Grenade(x, y, dir_x * speed, dir_y * speed - 3, total_dmg))
+
         return True, self.ammo_cost
 
+
+# Súng mua thêm trong cửa hàng (tab VŨ KHÍ): tên khóa -> (giá, mô tả)
+SHOP_WEAPONS = {
+    "Laser": (800, "Tia xuyên thấu mọi quái trên đường bắn"),
+    "Grenade": (1200, "Lựu đạn nổ lan, gây sát thương diện rộng"),
+}
+WEAPON_KEYS = ["Blaster", "Shotgun", "Rifle", "Laser", "Grenade"]   # phím 1..5
 
 WEAPON_LIST = {
     "Blaster": Weapon(name="Blaster", damage=20, fire_rate=15, ammo_cost=1, weapon_type="BLASTER", max_ammo=18),
     "Shotgun": Weapon(name="Shotgun", damage=45, fire_rate=40, ammo_cost=1, weapon_type="SHOTGUN", max_ammo=7),
-    "Rifle": Weapon(name="Assault Rifle", damage=12, fire_rate=5, ammo_cost=1, weapon_type="ASSAULT_RIFLE", max_ammo=25)
+    "Rifle": Weapon(name="Assault Rifle", damage=12, fire_rate=5, ammo_cost=1, weapon_type="ASSAULT_RIFLE", max_ammo=25),
+    "Laser": Weapon(name="Laser Lance", damage=38, fire_rate=32, ammo_cost=1, weapon_type="LASER", max_ammo=10),
+    "Grenade": Weapon(name="Grenade Launcher", damage=70, fire_rate=50, ammo_cost=1, weapon_type="GRENADE", max_ammo=6),
 }
