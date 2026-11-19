@@ -276,14 +276,10 @@ class GameView:
         cur_w = getattr(player, "weapon", "")
         is_scoped = getattr(player, "scoped", False)
 
-        if is_scoped and cur_w not in ("SMOKE", "MOLOTOV", "BOMB"):
-            # Khi đang bật kính ngắm (ADS / Scope), ẩn thân súng để tầm nhìn ngắm chuẩn xác
-            self.muzzle_x = self.width // 2
-            self.muzzle_y = self.height // 2
-        else:
-            self.muzzle_x, self.muzzle_y = self.cs_viewmodel.draw(
-                self.screen, player, reload_drop, side_sway, bomb_fuse
-            )
+        # Khi ngắm (ADS), CSViewModel tự đưa thước ngắm vào giữa; súng tỉa thì ẩn sau ống nhòm
+        self.muzzle_x, self.muzzle_y = self.cs_viewmodel.draw(
+            self.screen, player, reload_drop, side_sway, bomb_fuse
+        )
 
         # 4. Tia đạn (Tracers)
         now = pygame.time.get_ticks()
@@ -310,7 +306,8 @@ class GameView:
 
         # 6. Tâm ngắm (Crosshair) & HUD
         cx, cy, gap = self.width // 2, self.height // 2, 7 + int(player.recoil * 100)
-        for p1, p2 in [((cx - gap - 8, cy), (cx - gap, cy)), ((cx + gap, cy), (cx + gap + 8, cy)), ((cx, cy - gap - 8), (cx, cy - gap)), ((cx, cy + gap), (cx, cy + gap + 8))]:
+        show_cross = getattr(player, "ads", 0.0) < 0.5
+        for p1, p2 in ([] if not show_cross else [((cx - gap - 8, cy), (cx - gap, cy)), ((cx + gap, cy), (cx + gap + 8, cy)), ((cx, cy - gap - 8), (cx, cy - gap)), ((cx, cy + gap), (cx, cy + gap + 8))]):
             pygame.draw.line(self.screen, (245, 245, 245), p1, p2, 2)
         hud.draw(self.screen, player, player_score, enemy_score, round_timer)
 

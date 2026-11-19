@@ -37,6 +37,15 @@ class Model:
         self.verts = []   # [(x, y, z)]
         self.faces = []   # [(tuple chỉ số đỉnh, pháp tuyến (nx, ny, nz), màu)]
         self.muzzle = (0.5, 0.0, 0.0)
+        self.mag = None          # băng đạn: Model riêng để tháo/lắp khi nạp đạn
+        self.mag_hidden = False  # True: băng đạn nằm trong báng (súng lục) -> chỉ hiện khi đang nạp
+        self.sight_y = 0.05      # độ cao đường ngắm (để đưa thước ngắm vào giữa màn hình khi ngắm)
+        self.ads_z = 0.40        # khoảng cách mắt -> gốc súng khi ngắm (báng nằm sau camera)
+
+    def new_mag(self, hidden=False):
+        self.mag = Model()
+        self.mag_hidden = hidden
+        return self.mag
 
     def _add(self, pts, faces, color):
         base = len(self.verts)
@@ -156,7 +165,11 @@ def _pistol(body, slide, suppressor=False, long_barrel=False):
     m.box(L - 0.015, L, 0.035, 0.045, -0.003, 0.003, METAL_DARK)    # đầu ruồi
     m.box(-0.045, -0.03, 0.035, 0.045, -0.009, 0.009, METAL_DARK)   # thước ngắm
     _grip(m, body, x=-0.02, slope=0.03, length=0.11)
+    mg = m.new_mag(hidden=True)
+    mg.extrude([(-0.05, -0.03), (-0.005, -0.03), (-0.035, -0.125), (-0.08, -0.12)], -0.012, 0.012, METAL_DARK)
+    mg.box(-0.09, -0.03, -0.138, -0.124, -0.016, 0.016, body)     # đế băng đạn
     _trigger_guard(m, body, x=0.0)
+    m.sight_y, m.ads_z = 0.052, 0.32
     end = L
     if suppressor:
         m.cyl(L, L + 0.16, 0.017, 0.0, 0.017, METAL_DARK)
@@ -179,6 +192,7 @@ def _revolver(body):
     _grip(m, (92, 58, 36), x=-0.03, slope=0.04, length=0.11)
     _trigger_guard(m, body, x=-0.01)
     _hands_pistol(m)
+    m.sight_y, m.ads_z = 0.057, 0.32
     m.muzzle = (0.24, 0.022, 0.0)
     return m
 
@@ -194,9 +208,10 @@ def _rifle_ak(wood, metal, accent=None):
     m.box(0.54, 0.555, 0.02, 0.062, -0.005, 0.005, METAL_DARK)      # đầu ruồi
     m.cyl(0.58, 0.64, 0.012, 0.0, 0.016, METAL_DARK)                # chống giật đầu nòng
     m.box(0.06, 0.09, 0.056, 0.07, -0.008, 0.008, METAL_DARK)       # thước ngắm
-    m.extrude([(0.04, -0.03), (0.12, -0.03), (0.17, -0.21), (0.085, -0.225)], -0.016, 0.016, METAL_DARK)
+    m.new_mag().extrude([(0.04, -0.03), (0.12, -0.03), (0.17, -0.21), (0.085, -0.225)], -0.016, 0.016, METAL_DARK)
     _grip(m, METAL_DARK)
     _trigger_guard(m, metal)
+    m.sight_y, m.ads_z = 0.077, 0.47
     m.extrude([(-0.13, 0.04), (-0.13, -0.03), (-0.43, -0.095), (-0.45, 0.015)], -0.02, 0.02, wood)
     _hands_rifle(m, 0.27)
     m.muzzle = (0.64, 0.012, 0.0)
@@ -222,7 +237,8 @@ def _rifle_ar(body, accent, suppressor=False):
         m.cyl(0.37, 0.56, 0.012, 0.0, 0.011, METAL_DARK)
         m.cyl(0.55, 0.61, 0.012, 0.0, 0.016, METAL_DARK)
         end = 0.61
-    m.extrude([(0.015, -0.05), (0.09, -0.05), (0.115, -0.2), (0.04, -0.21)], -0.016, 0.016, METAL_DARK)
+    m.new_mag().extrude([(0.015, -0.05), (0.09, -0.05), (0.115, -0.2), (0.04, -0.21)], -0.016, 0.016, METAL_DARK)
+    m.sight_y, m.ads_z = 0.128, 0.44
     _grip(m, METAL_DARK)
     _trigger_guard(m, body)
     m.cyl(-0.34, -0.14, 0.022, 0.0, 0.016, METAL_DARK)              # ống đệm báng
@@ -242,7 +258,8 @@ def _guardian(body, accent):
     m.cyl(0.70, 0.76, 0.012, 0.0, 0.018, METAL_DARK)
     m.cyl(-0.04, 0.12, 0.095, 0.0, 0.02, METAL_DARK)                # ống ngắm nhỏ
     m.box(0.02, 0.05, 0.066, 0.078, -0.008, 0.008, METAL_DARK)
-    m.extrude([(0.02, -0.025), (0.09, -0.025), (0.10, -0.15), (0.03, -0.155)], -0.015, 0.015, METAL_DARK)
+    m.new_mag().extrude([(0.02, -0.025), (0.09, -0.025), (0.10, -0.15), (0.03, -0.155)], -0.015, 0.015, METAL_DARK)
+    m.sight_y, m.ads_z = 0.122, 0.49
     _grip(m, METAL_DARK)
     _trigger_guard(m, body)
     m.extrude([(-0.16, 0.05), (-0.16, -0.025), (-0.46, -0.08), (-0.47, 0.02), (-0.30, 0.03)],
@@ -259,19 +276,20 @@ def _smg(body, accent, kind):
         m.cyl(0.0, 0.26, 0.03, 0.0, 0.018, body)                     # ống trên MP5
         m.box(0.17, 0.30, -0.035, 0.03, -0.028, 0.028, accent)       # ốp tay to
         m.cyl(0.30, 0.38, 0.012, 0.0, 0.012, METAL_DARK)
-        m.extrude([(0.03, -0.025), (0.09, -0.025), (0.13, -0.18), (0.075, -0.19)], -0.013, 0.013, METAL_DARK)
+        m.new_mag().extrude([(0.03, -0.025), (0.09, -0.025), (0.13, -0.18), (0.075, -0.19)], -0.013, 0.013, METAL_DARK)
         end = 0.38
     else:  # UMP: thân vuông, băng đạn thẳng
         m.box(0.17, 0.32, -0.03, 0.045, -0.026, 0.026, accent)
         m.box(-0.08, 0.30, 0.045, 0.058, -0.012, 0.012, METAL_DARK)
         m.cyl(0.32, 0.37, 0.012, 0.0, 0.013, METAL_DARK)
-        m.extrude([(0.03, -0.025), (0.095, -0.025), (0.10, -0.19), (0.035, -0.19)], -0.015, 0.015, METAL_DARK)
+        m.new_mag().extrude([(0.03, -0.025), (0.095, -0.025), (0.10, -0.19), (0.035, -0.19)], -0.015, 0.015, METAL_DARK)
         end = 0.37
     m.box(-0.02, 0.06, 0.058, 0.09, -0.016, 0.016, METAL_DARK)
     _grip(m, METAL_DARK)
     _trigger_guard(m, body)
     m.extrude([(-0.10, 0.04), (-0.10, -0.02), (-0.30, -0.06), (-0.32, 0.03)], -0.018, 0.018, accent)
     _hands_rifle(m, 0.235)
+    m.sight_y, m.ads_z = 0.097, 0.34
     m.muzzle = (end, 0.012, 0.0)
     return m
 
@@ -284,7 +302,7 @@ def _shotgun(body, accent, kind):
     m.box(0.56, 0.57, 0.035, 0.05, -0.004, 0.004, STEEL)            # đầu ruồi
     if kind == "MAG-7":
         m.box(0.22, 0.36, -0.04, 0.01, -0.03, 0.03, accent)          # ốp bơm (pump)
-        m.extrude([(0.03, -0.03), (0.09, -0.03), (0.09, -0.17), (0.03, -0.17)], -0.018, 0.018, METAL_DARK)
+        m.new_mag().extrude([(0.03, -0.03), (0.09, -0.03), (0.09, -0.17), (0.03, -0.17)], -0.018, 0.018, METAL_DARK)
         m.extrude([(-0.12, 0.04), (-0.12, -0.03), (-0.20, -0.05), (-0.20, 0.035)], -0.02, 0.02, accent)
         fore = 0.29
     else:  # M1014: báng dài, ốp tay dài
@@ -295,6 +313,7 @@ def _shotgun(body, accent, kind):
     _grip(m, METAL_DARK)
     _trigger_guard(m, body)
     _hands_rifle(m, fore)
+    m.sight_y, m.ads_z = 0.066, 0.46
     m.muzzle = (0.58, 0.022, 0.0)
     return m
 
@@ -319,10 +338,11 @@ def _sniper(body, accent, kind):
         m.extrude([(0.18, 0.03), (0.52, 0.02), (0.52, -0.02), (0.18, -0.05)], -0.026, 0.026, accent)
         m.extrude([(-0.14, 0.04), (-0.14, -0.04), (-0.48, -0.10), (-0.49, 0.03)], -0.024, 0.024, accent)
         end = 0.86
-    m.extrude([(0.03, -0.03), (0.09, -0.03), (0.09, -0.11), (0.03, -0.11)], -0.014, 0.014, METAL_DARK)
+    m.new_mag().extrude([(0.03, -0.03), (0.09, -0.03), (0.09, -0.11), (0.03, -0.11)], -0.014, 0.014, METAL_DARK)
     _grip(m, accent)
     _trigger_guard(m, body)
     _hands_rifle(m, 0.32)
+    m.sight_y, m.ads_z = 0.105, 0.52
     m.muzzle = (end, 0.012, 0.0)
     return m
 
@@ -388,10 +408,12 @@ def _matrix(yaw, pitch, roll):
     return mul(ry, mul(rx, rz))
 
 
-def render(screen, weapon_id, pos, yaw=0.0, pitch=0.0, roll=0.0, mirror=False, fov_deg=68.0,
-           outline=True):
+def render(screen, weapon_id, pos, yaw=0.0, pitch=0.0, roll=0.0, mirror=False, fov_deg=54.0,
+           outline=True, mag_offset=None, mag_roll=0.0):
     """Vẽ súng lên screen.
     pos: (x, y, z) vị trí gốc súng trong hệ camera (x phải, y xuống, z vào trong màn hình).
+    mag_offset: (dx, dy, dz) dịch băng đạn theo hệ tọa độ súng khi nạp đạn (None = băng đạn ở chỗ cũ).
+    mag_roll: xoay băng đạn quanh trục z của súng (radian) khi rơi ra.
     Trả về tọa độ màn hình của đầu nòng (để vẽ tia đạn / lửa đầu nòng)."""
     model = get_model(weapon_id)
     sw, sh = screen.get_size()
@@ -409,27 +431,39 @@ def render(screen, weapon_id, pos, yaw=0.0, pitch=0.0, roll=0.0, mirror=False, f
                 d * bx + e * by + g * bz + py,
                 h * bx + i * by + j * bz + pz)
 
-    cam = [to_cam(v) for v in model.verts]
-    proj = [(cx + x / z * f, cy + y / z * f) if z > 0.02 else None for x, y, z in cam]
+    parts = [(model, None)]
+    if model.mag is not None and not (model.mag_hidden and mag_offset is None):
+        parts.append((model.mag, mag_offset))
 
     polys = []
-    for idx, n, col in model.faces:
-        bx, by, bz = n[2], -n[1], n[0]
-        nx = sx * (a * bx + b * by + c * bz)
-        ny = d * bx + e * by + g * bz
-        nz = h * bx + i * by + j * bz
-        k = len(idx)
-        fx = sum(cam[t][0] for t in idx) / k
-        fy = sum(cam[t][1] for t in idx) / k
-        fz = sum(cam[t][2] for t in idx) / k
-        if nx * fx + ny * fy + nz * fz >= 0:      # mặt quay lưng về camera -> bỏ
-            continue
-        pts = [proj[t] for t in idx]
-        if None in pts:
-            continue
-        lam = max(0.0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])
-        rim = max(0.0, -nz) ** 6 * 0.15                       # viền sáng nhẹ ở mặt hướng thẳng camera
-        polys.append((fz, pts, _shade(col, AMBIENT + 0.68 * lam + rim)))
+    for part, off in parts:
+        verts = part.verts
+        mr = 0.0
+        if off is not None:
+            mr = mag_roll
+            cr, sr = math.cos(mr), math.sin(mr)
+            verts = [(x * cr - y * sr + off[0], x * sr + y * cr + off[1], z + off[2]) for x, y, z in verts]
+        cam = [to_cam(v) for v in verts]
+        proj = [(cx + x / z * f, cy + y / z * f) if z > 0.02 else None for x, y, z in cam]
+        cr, sr = math.cos(mr), math.sin(mr)
+        for idx, n, col in part.faces:
+            n0, n1 = n[0] * cr - n[1] * sr, n[0] * sr + n[1] * cr
+            bx, by, bz = n[2], -n1, n0
+            nx = sx * (a * bx + b * by + c * bz)
+            ny = d * bx + e * by + g * bz
+            nz = h * bx + i * by + j * bz
+            k = len(idx)
+            fx = sum(cam[t][0] for t in idx) / k
+            fy = sum(cam[t][1] for t in idx) / k
+            fz = sum(cam[t][2] for t in idx) / k
+            if nx * fx + ny * fy + nz * fz >= 0:      # mặt quay lưng về camera -> bỏ
+                continue
+            pts = [proj[t] for t in idx]
+            if None in pts:
+                continue
+            lam = max(0.0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])
+            rim = max(0.0, -nz) ** 6 * 0.15                   # viền sáng nhẹ ở mặt hướng thẳng camera
+            polys.append((fz, pts, _shade(col, AMBIENT + 0.68 * lam + rim)))
 
     polys.sort(key=lambda p: -p[0])
     for _, pts, col in polys:

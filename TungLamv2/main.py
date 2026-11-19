@@ -6,7 +6,7 @@ import sys
 import pygame
 import sound
 
-from settings import WIDTH, HEIGHT, FPS, ROUND_TIME, BUY_TIME
+from settings import WIDTH, HEIGHT, FPS, ROUND_TIME, BUY_TIME, FOV
 from game.player import Player
 from game.enemy import Enemy
 from game.map import walls, site_A, site_B, site_C, line_blocked, check_smoke_blocks
@@ -75,15 +75,55 @@ knife_idle = pygame.transform.rotate(knife_view, -45)
 
 # Ống nhắm: scope_level 0 = tắt, 1.. = mức zoom
 scope_level = 0
+# Chuột phải: ngắm qua thước ngắm (ADS). Súng bắn tỉa: ống nhòm 2 mức zoom (bấm lần 3 để tắt)
 SCOPE_CONFIG = {
-    "UMP": {"levels": [1.15], "dark": False},
-    "MP5": {"levels": [1.15], "dark": False},
-    "AK-47": {"levels": [1.25], "dark": False},
-    "M416": {"levels": [1.25], "dark": False},
-    "M24": {"levels": [2.5], "dark": True},
-    "AWM": {"levels": [2.5], "dark": True},
+    "CLASSIC": {"levels": [1.15], "dark": False},
+    "GHOST": {"levels": [1.15], "dark": False},
+    "SHERIFF": {"levels": [1.2], "dark": False},
+    "UMP": {"levels": [1.3], "dark": False},
+    "MP5": {"levels": [1.3], "dark": False},
+    "M014": {"levels": [1.15], "dark": False},
+    "MAG-7": {"levels": [1.15], "dark": False},
+    "AK-47": {"levels": [1.5], "dark": False},
+    "M416": {"levels": [1.6], "dark": False},
+    "GUARDIAN": {"levels": [2.0], "dark": False},
+    "M24": {"levels": [2.5, 5.0], "dark": True},
+    "AWM": {"levels": [2.5, 5.0], "dark": True},
 }
 SCOPE_WEAPONS = tuple(SCOPE_CONFIG)
+BASE_FOV = math.radians(FOV)
+ADS_SPEED = 7.0        # tốc độ đưa súng lên ngắm (1/giây)
+scope_zoom = 1.0       # độ phóng hiện tại (chuyển mượt tới mức zoom mục tiêu)
+
+
+def set_zoom(zoom):
+    """Phóng to thế giới 3D bằng cách thu hẹp góc nhìn của renderer."""
+    renderer.fov = 2 * math.atan(math.tan(BASE_FOV / 2) / zoom)
+    renderer.projection_plane = (WIDTH / 2.0) / math.tan(renderer.fov / 2.0)
+
+
+def cancel_scope():
+    global scope_level
+    scope_level = 0
+    player.scoped = False
+
+
+def update_scope(dt):
+    """Cập nhật hoạt ảnh ngắm (player.ads 0..1) và độ phóng của camera."""
+    global scope_zoom
+    want = scope_level > 0 and player.weapon in SCOPE_WEAPONS and player.alive and not player.reloading
+    target_ads = 1.0 if want else 0.0
+    ads = getattr(player, "ads", 0.0)
+    step = ADS_SPEED * dt
+    ads = min(target_ads, ads + step) if target_ads > ads else max(target_ads, ads - step)
+    player.ads = ads
+    target_zoom = SCOPE_CONFIG[player.weapon]["levels"][scope_level - 1] if want else 1.0
+    if want and SCOPE_CONFIG[player.weapon]["dark"] and ads < 0.85:
+        target_zoom = 1.0 + (target_zoom - 1.0) * ads     # súng tỉa: zoom khi ống nhòm đã lên mắt
+    scope_zoom += (target_zoom - scope_zoom) * min(1.0, dt * 14.0)
+    if abs(scope_zoom - target_zoom) < 0.002:
+        scope_zoom = target_zoom
+    set_zoom(scope_zoom)
 
 # Kinh tế
 STARTING_MONEY, MAX_MONEY, WIN_REWARD = 800, 99000, 3250
@@ -207,6 +247,7 @@ def load_ammo():
         player.max_magazine = player.magazine = player.reserve = 0
 
 def start_reload():
+    cancel_scope()
     player.reloading = True
     player.reload_start = pygame.time.get_ticks() / 1000.0
     sound.play("reload.wav")
@@ -739,25 +780,34 @@ def draw_held_item():
 
 def draw_scope():
     cfg = SCOPE_CONFIG[player.weapon]
-    zoom = cfg["levels"][scope_level - 1]
+    zoom = cfg["levels"][max(1, scope_level) - 1]
     cx, cy = WIDTH // 2, HEIGHT // 2
-    surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    if not cfg["dark"]:  # SMG / Rifle: dây ngắm ADS
-        gap, arm, col = 12, 20, (255, 255, 255, 200)
-        for p1, p2 in (((cx - gap - arm, cy), (cx - gap, cy)), ((cx + gap, cy), (cx + gap + arm, cy)),
-                       ((cx, cy - gap - arm), (cx, cy - gap)), ((cx, cy + gap), (cx, cy + gap + arm))):
-            pygame.draw.line(surf, col, p1, p2, 2)
-        pygame.draw.circle(surf, col, (cx, cy), 2)
-    else:  # Sniper: viền tối + kính tròn + dây ngắm
-        r = int(min(WIDTH, HEIGHT) * 0.28)
-        col = (180, 220, 180, 255)
-        surf.fill((0, 0, 0, 220))
+    if not cfg["dark"]:  # ADS: thước ngắm của súng đã ở giữa, chỉ thêm chấm đỏ nhỏ
+        pygame.draw.circle(screen, (255, 60, 60), (cx, cy), 3)
+        pygame.draw.circle(screen, (40, 0, 0), (cx, cy), 3, 1)
+    else:  # Sniper: ống nhòm tròn, viền tối, dây chữ thập + vạch đo
+        r = int(min(WIDTH, HEIGHT) * 0.42)
+        surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 255))
         pygame.draw.circle(surf, (0, 0, 0, 0), (cx, cy), r)
-        pygame.draw.circle(surf, (30, 30, 30, 255), (cx, cy), r, 6)
-        pygame.draw.line(surf, col, (cx - r, cy), (cx + r, cy), 1)
-        pygame.draw.line(surf, col, (cx, cy - r), (cx, cy + r), 1)
-        pygame.draw.circle(surf, col, (cx, cy), 3)
-    screen.blit(surf, (0, 0))
+        for k in range(14):  # viền kính mờ dần vào trong
+            pygame.draw.circle(surf, (0, 0, 0, 150 - k * 10), (cx, cy), r - k, 1)
+        pygame.draw.circle(surf, (20, 20, 20, 255), (cx, cy), r, 5)
+        col = (10, 10, 10, 255)
+        pygame.draw.line(surf, col, (cx - r, cy), (cx - 6, cy), 2)
+        pygame.draw.line(surf, col, (cx + 6, cy), (cx + r, cy), 2)
+        pygame.draw.line(surf, col, (cx, cy - r), (cx, cy - 6), 2)
+        pygame.draw.line(surf, col, (cx, cy + 6), (cx, cy + r), 2)
+        pygame.draw.line(surf, col, (cx - r, cy), (cx - r // 2, cy), 5)   # vạch đậm ngoài rìa
+        pygame.draw.line(surf, col, (cx + r // 2, cy), (cx + r, cy), 5)
+        pygame.draw.line(surf, col, (cx, cy + r // 2), (cx, cy + r), 5)
+        for t in range(1, 5):  # vạch đo khoảng cách
+            d = t * r // 10
+            for sx in (-1, 1):
+                pygame.draw.line(surf, col, (cx + sx * d, cy - 5), (cx + sx * d, cy + 5), 1)
+            pygame.draw.line(surf, col, (cx - 5, cy + d), (cx + 5, cy + d), 1)
+        pygame.draw.circle(surf, (230, 40, 40, 255), (cx, cy), 2)
+        screen.blit(surf, (0, 0))
     draw_text(f"{zoom:.2g}x", font_mid, (220, 255, 180), topright=(WIDTH - 24, 24))
 
 
@@ -990,7 +1040,8 @@ def player_shoot():
     player.magazine -= 1
     player.recoil = min(player.recoil + 0.035, 0.14)
     sound.play("pistol.wav" if w_obj.category == "PISTOL" else "shotgun.wav")
-    shot_angle = player.angle + (random.random() - 0.5) * player.recoil * 0.08
+    spread = player.recoil * 0.08 * (1.0 - 0.7 * getattr(player, "ads", 0.0))
+    shot_angle = player.angle + (random.random() - 0.5) * spread
     wall_dist = renderer.raycast(player, shot_angle, walls)
     cx, cy = WIDTH // 2, HEIGHT // 2
     shot_y = cy - int(player.recoil * 100)
@@ -1153,7 +1204,7 @@ def handle_mouse_down(event):
         elif game_state == "ROUND":
             if holding_knife():
                 melee_attack(is_right_click=True)
-            elif player.weapon in SCOPE_WEAPONS and held_item is None and player.alive:
+            elif player.weapon in SCOPE_WEAPONS and held_item is None and player.alive and not player.reloading:
                 n = len(SCOPE_CONFIG[player.weapon]["levels"])
                 scope_level = (scope_level + 1) % (n + 1)  # 0 → 1 → ... → 0
                 player.scoped = (scope_level > 0)
@@ -1195,8 +1246,9 @@ async def main():
         if game_state not in ("MATCH_OVER", "MENU"):
             if not shop_open:
                 update_player_movement(dt)
-                player.look(*pygame.mouse.get_rel(), sensitivity=0.0025)
+                player.look(*pygame.mouse.get_rel(), sensitivity=0.0025 / scope_zoom)
             player.update_vertical(dt)
+            update_scope(dt)
             if player.reloading and pygame.time.get_ticks() / 1000.0 - player.reload_start >= player.reload_time:
                 amt = min(player.max_magazine - player.magazine, player.reserve)
                 player.magazine += amt
@@ -1253,8 +1305,10 @@ async def main():
                 if player.alive:
                     if held_item:
                         draw_held_item()
-                    elif scope_level > 0 and player.weapon in SCOPE_WEAPONS:
+                    elif player.weapon in SCOPE_WEAPONS and getattr(player, "ads", 0.0) > 0.85:
                         draw_scope()
+                        if SCOPE_CONFIG[player.weapon]["dark"]:  # ống nhòm che màn hình -> vẽ lại HUD
+                            hud.draw(screen, player, player_score, enemy_score, round_timer)
                 draw_weapon_slots()
                 if player.alive and not shop_open:
                     draw_pickup_prompt()
