@@ -452,10 +452,11 @@ def render(screen, weapon_id, pos, yaw=0.0, pitch=0.0, roll=0.0, mirror=False, f
             nx = sx * (a * bx + b * by + c * bz)
             ny = d * bx + e * by + g * bz
             nz = h * bx + i * by + j * bz
-            k = len(idx)
-            fx = sum(cam[t][0] for t in idx) / k
-            fy = sum(cam[t][1] for t in idx) / k
-            fz = sum(cam[t][2] for t in idx) / k
+            i0, i1 = idx[0], idx[2]
+            c0, c1 = cam[i0], cam[i1]
+            fx = (c0[0] + c1[0]) * 0.5
+            fy = (c0[1] + c1[1]) * 0.5
+            fz = (c0[2] + c1[2]) * 0.5
             if nx * fx + ny * fy + nz * fz >= 0:      # mặt quay lưng về camera -> bỏ
                 continue
             pts = [proj[t] for t in idx]

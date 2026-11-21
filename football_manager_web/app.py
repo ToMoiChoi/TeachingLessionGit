@@ -45,10 +45,10 @@ else:
 os.makedirs(upload_folder, exist_ok=True)
 os.makedirs(data_folder, exist_ok=True)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('FM_DB_URI') or f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = upload_folder
-app.config['DATA_FOLDER'] = data_folder
+app.config['UPLOAD_FOLDER'] = os.environ.get('FM_UPLOAD_DIR') or upload_folder
+app.config['DATA_FOLDER'] = os.environ.get('FM_DATA_DIR') or data_folder
 
 db.init_app(app)
 

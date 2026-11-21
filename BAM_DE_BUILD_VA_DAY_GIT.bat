@@ -10,12 +10,18 @@ echo   VA DAY LEN GIT
 echo ========================================================
 echo.
 
-rem ---- Tim cac thu muc game (co file main.py) ----
+rem ---- Tim cac thu muc game (co file main.py hoac CyberEsc lồng bên trong) ----
 set COUNT=0
 for /d %%D in (*) do (
     if exist "%%D\main.py" (
         set /a COUNT+=1
         set "GAME!COUNT!=%%D"
+        set "MAIN!COUNT!=%%D\main.py"
+        echo   [!COUNT!] %%D
+    ) else if exist "%%D\CyberEsc\cyberesc\main.py" (
+        set /a COUNT+=1
+        set "GAME!COUNT!=%%D"
+        set "MAIN!COUNT!=%%D\CyberEsc\cyberesc\main.py"
         echo   [!COUNT!] %%D
     )
 )
@@ -29,6 +35,7 @@ if %COUNT% EQU 0 (
 echo.
 set /p CHOICE=Chon so thu tu game cua ban roi bam Enter:
 set "GAME=!GAME%CHOICE%!"
+set "MAINPY=!MAIN%CHOICE%!"
 if "%GAME%"=="" (
     echo [LOI] So ban chon khong hop le!
     pause
@@ -43,7 +50,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo [2/5] Dang build game "%GAME%" bang pygbag (cho 1 chut nhe)...
-py -m pygbag --build --disable-sound-format-error "%GAME%\main.py"
+py -m pygbag --build --disable-sound-format-error "%MAINPY%"
 if %ERRORLEVEL% NEQ 0 (
     echo [LOI] Build that bai! Xem loi o phia tren.
     pause

@@ -133,43 +133,14 @@ class Player:
     # =====================================================
 
     def move(self, dx, dy, walls):
-
-        # -----------------------------------------------------
-        # DI CHUYỂN TRỤC X
-        # -----------------------------------------------------
-
-        test_x = pygame.Rect(
-            int(self.x + dx - self.radius),
-            int(self.y - self.radius),
-            self.radius * 2,
-            self.radius * 2
-        )
-
-        blocked_x = any(
-            test_x.colliderect(wall)
-            for wall in walls
-        )
-
-        if not blocked_x:
+        r = self.radius
+        d = r * 2
+        test_x = pygame.Rect(int(self.x + dx - r), int(self.y - r), d, d)
+        if test_x.collidelist(walls) == -1:
             self.x += dx
 
-        # -----------------------------------------------------
-        # DI CHUYỂN TRỤC Y
-        # -----------------------------------------------------
-
-        test_y = pygame.Rect(
-            int(self.x - self.radius),
-            int(self.y + dy - self.radius),
-            self.radius * 2,
-            self.radius * 2
-        )
-
-        blocked_y = any(
-            test_y.colliderect(wall)
-            for wall in walls
-        )
-
-        if not blocked_y:
+        test_y = pygame.Rect(int(self.x - r), int(self.y + dy - r), d, d)
+        if test_y.collidelist(walls) == -1:
             self.y += dy
 
     # =====================================================

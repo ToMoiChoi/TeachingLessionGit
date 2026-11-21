@@ -34,6 +34,10 @@ def main() -> int:
     game_dir = (ROOT / sys.argv[1]).resolve()
     build_web = game_dir / "build" / "web"
     if not (build_web / "index.html").exists():
+        nested_build = game_dir / "CyberEsc" / "cyberesc" / "build" / "web"
+        if (nested_build / "index.html").exists():
+            build_web = nested_build
+    if not (build_web / "index.html").exists():
         print(f"[LOI] Khong thay ban build: {build_web}")
         return 1
 

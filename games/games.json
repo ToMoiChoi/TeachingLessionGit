@@ -3,14 +3,14 @@
     "id": "tunglamv2",
     "title": "Lotus Tactical FPS",
     "author": "Tùng Lâm",
-    "description": "Game bắn súng góc nhìn thứ nhất, phong cách chiến thuật: mua súng đầu hiệp, đặt bom, phá bom, đấu với máy.",
-    "tag": "FPS",
+    "description": "Game bắn súng 3D góc nhìn thứ nhất: 5 bản đồ chiến thuật, chế độ Sinh tồn Zombie theo đợt & Hỗn chiến Đặc nhiệm + Zombie, ngắm ADS, cửa hàng súng và hộp tiếp tế 3D.",
+    "tag": "FPS · Zombie",
     "emoji": "🎯",
     "color": "#e8590c",
     "playable": true,
-    "stats": { "files": 14, "lines": 4712 },
-    "features": ["Đồ hoạ 3D giả lập bằng kỹ thuật raycasting", "Cửa hàng vũ khí, 12 skin súng", "Bản đồ nhỏ (minimap), lựu đạn, đặt/phá bom", "Chia code thành các gói game / graphics / ui"],
-    "controls": [["W A S D", "Di chuyển"], ["Chuột", "Ngắm và bắn"], ["R", "Nạp đạn"], ["1 2 3", "Đổi vũ khí"], ["B", "Mở cửa hàng"], ["Space", "Nhảy"]]
+    "stats": { "files": 19, "lines": 6629 },
+    "features": ["5 bản đồ 3D có sơ đồ preview trực quan ngay tại Menu", "3 chế độ: Hỗn chiến, Sinh tồn Zombie (Wave + Boss Đột Biến) & Đấu hiệp", "4 chủng loại Zombie khối 3D Roblox + rơi Hộp Cứu Thương, Đạn, Giáp", "Cửa hàng 15 vũ khí, ngắm ADS/Ống nhòm, lưu kỷ lục tự động trên Web"],
+    "controls": [["W A S D", "Di chuyển"], ["Chuột trái / phải", "Bắn / Ngắm ADS"], ["R", "Nạp đạn"], ["1 2 3 / 4 5 6", "Đổi súng / Lựu đạn"], ["B / N", "Mở Shop / Bỏ qua chờ"], ["Space / Ctrl", "Nhảy / Ngồi"]]
   },
   {
     "id": "baonam",
