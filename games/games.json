@@ -41,7 +41,7 @@
   {
     "id": "football",
     "title": "Football Manager",
-    "author": "Đang cập nhật",
+    "author": "Phúc Anh",
     "description": "Ứng dụng web làm huấn luyện viên bóng đá (Flask + database): tạo CLB, xếp đội hình, đá trận trực tiếp từng phút và leo hạng qua 18 vòng.",
     "tag": "Web app",
     "emoji": "⚽",

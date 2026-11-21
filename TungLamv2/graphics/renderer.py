@@ -17,7 +17,7 @@ class Renderer:
     Hệ thống đồ họa 3D chuẩn xác (True 3D Analytical Engine):
     - Đồ họa không gian 3 chiều với phối cảnh góc nhìn thực tế (True 3D Perspective)
     - Phóng tia giao điểm chính xác từng pixel (Analytical Slab / Segment Raycaster - không bậc thang, không răng cưa)
-    - Sàn nhà 3D có lưới phối cảnh (3D Perspective Grid Floor) tụ về đường chân trời
+    - Sàn nhà 3D phối cảnh (3D Perspective Floor) tụ về đường chân trời mượt mà
     - Bầu trời / Không gian đêm 3D có các chòm sao xoay theo góc nhìn chuột
     - Bề mặt tường 3D có gờ cột, chân tường gia cố, phào trần và vạch phản quang neon sci-fi
     - Ánh sáng định hướng 4 chiều (Directional Lighting 4 hướng: Bắc, Nam, Đông, Tây)
@@ -212,7 +212,7 @@ class Renderer:
                         pygame.draw.circle(screen, star_col, (star_sx, star_sy), star_sz)
 
         # ======================================================================
-        # 2. SÀN NHÀ 3D PHỐI CẢNH (3D PERSPECTIVE GRID FLOOR)
+        # 2. SÀN NHÀ 3D PHỐI CẢNH (3D PERSPECTIVE FLOOR - NỀN SẠCH MỊN KHÔNG GẠCH)
         # ======================================================================
         floor_top = max(0, min(HEIGHT, horizon))
         eff_eye_h = self.eye_height + getattr(player, "vertical_offset", 0.0) * self.jump_camera_scale
@@ -221,8 +221,6 @@ class Renderer:
         eff_eye_h = max(20.0, eff_eye_h)
 
         half_fov = self.fov / 2.0
-        cos_l = math.cos(player_ang - half_fov)
-        sin_l = math.sin(player_ang - half_fov)
 
         # Quét sàn theo từng cặp dòng để đạt hiệu năng 120 FPS
         step_y = 2
@@ -237,20 +235,9 @@ class Renderer:
             # Hệ số sương mù xa mờ dần (Distance Fog)
             fog = max(0.0, min(1.0, 1.0 - (z / 1250.0) ** 1.3))
 
-            # Tọa độ thực của dòng sàn phía trái
-            wyl = py + z * sin_l
-
-            # Đường lưới gạch ngang phối cảnh (mỗi 80 đơn vị map)
-            is_grid_line = (wyl % 80.0) < 5.5
-
             base_r = int(32 + 50 * fog)
             base_g = int(36 + 46 * fog)
             base_b = int(44 + 40 * fog)
-
-            if is_grid_line:
-                base_r = min(255, base_r + int(36 * fog))
-                base_g = min(255, base_g + int(46 * fog))
-                base_b = min(255, base_b + int(64 * fog))
 
             pygame.draw.rect(screen, (base_r, base_g, base_b), (0, y, WIDTH, step_y))
 

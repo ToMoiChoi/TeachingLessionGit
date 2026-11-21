@@ -25,7 +25,7 @@ window.exit_button.visible = False
 ground = Entity(
     model='plane',
     scale=(60, 1, 60),
-    texture='white_cube',
+    texture=None,
     color=color.rgb(80, 90, 80),
     collider='box',
 )

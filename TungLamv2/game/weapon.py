@@ -17,12 +17,17 @@ class Weapon:
         fire_mode="Full-Auto",
         damage_table=None,
         reload_time=1.8,
-        description=""
+        description="",
+        scoped_fire_rate=None,
+        scoped_zoom=None,
+        scoped_recoil_mult=0.7,
+        burst_count=1,
+        secondary_fire_mode=None
     ):
         """
         Khởi tạo vũ khí. Tương thích hoàn toàn với code gốc:
         Weapon(name, damage, fire_rate, magazine, reserve)
-        Đồng thời hỗ trợ đầy đủ bảng sát thương theo cự ly mét (PDF).
+        Đồng thời hỗ trợ đầy đủ bảng sát thương theo cự ly mét (PDF) và chế độ bắn phụ (Scope / Burst).
         """
         self.name = name
         self.id = name.upper()
@@ -39,6 +44,13 @@ class Weapon:
         self.fire_mode = fire_mode
         self.reload_time = reload_time
         self.description = description
+
+        # Chế độ bắn phụ / Ống ngắm (Scope / Burst / Giảm giãn hồng tâm)
+        self.scoped_fire_rate = scoped_fire_rate if scoped_fire_rate is not None else fire_rate
+        self.scoped_zoom = scoped_zoom
+        self.scoped_recoil_mult = scoped_recoil_mult
+        self.burst_count = burst_count
+        self.secondary_fire_mode = secondary_fire_mode
 
         # Bảng sát thương theo cự ly mét [(max_range_m, {"body": ..., "head": ..., "legs": ...})]
         if damage_table is not None:
@@ -120,13 +132,13 @@ CLASSIC = Weapon(
     reserve=60,
     price=0,
     category="PISTOL",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (30.0, {"body": 26, "head": 78, "legs": 22}),
         (50.0, {"body": 22, "head": 66, "legs": 18}),
     ],
     reload_time=1.5,
-    description="Basic pistol, free"
+    description="Súng phụ cơ bản, miễn phí · Bán tự động (6.75 viên/s)"
 )
 classic = CLASSIC
 
@@ -138,31 +150,31 @@ GHOST = Weapon(
     reserve=60,
     price=500,
     category="PISTOL",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (30.0, {"body": 30, "head": 105, "legs": 26}),
         (50.0, {"body": 25, "head": 88, "legs": 21}),
     ],
     reload_time=1.5,
-    description="Silenced high-accuracy pistol"
+    description="Súng lục giảm thanh độ chính xác cao · Bán tự động (6.75 viên/s)"
 )
 ghost = GHOST
 
 SHERIFF = Weapon(
     name="SHERIFF",
     damage=55,
-    fire_rate=1.0 / 4.0,  # 0.25s
+    fire_rate=1.0 / 4.0,  # 4 viên/s
     magazine=6,
     reserve=36,
     price=800,
     category="PISTOL",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (30.0, {"body": 55, "head": 160, "legs": 47}),
         (50.0, {"body": 50, "head": 145, "legs": 43}),
     ],
     reload_time=1.8,
-    description="High-damage heavy revolver"
+    description="Súng lục ổ quay uy lực khủng · Bán tự động (4 viên/s)"
 )
 sheriff = SHERIFF
 
@@ -179,13 +191,17 @@ MP5 = Weapon(
     reserve=90,
     price=1600,
     category="SMG",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (20.0, {"body": 26, "head": 78, "legs": 22}),
         (50.0, {"body": 22, "head": 66, "legs": 18}),
     ],
     reload_time=1.7,
-    description="High fire-rate SMG with low recoil"
+    scoped_fire_rate=1.0 / 12.0,
+    scoped_zoom=[1.15],
+    scoped_recoil_mult=0.7,
+    secondary_fire_mode="Sử dụng kính ngắm 1.15x - Tốc độ bắn: 12 viên/s",
+    description="SMG tốc độ bắn cao, giảm giãn hồng tâm · Ngắm 1.15x (12 viên/s)"
 )
 mp5 = MP5
 
@@ -197,13 +213,18 @@ UMP = Weapon(
     reserve=80,
     price=1000,
     category="SMG",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (20.0, {"body": 27, "head": 67, "legs": 23}),
         (50.0, {"body": 25, "head": 62, "legs": 21}),
     ],
     reload_time=1.6,
-    description="Rapid-fire SMG (18 rounds/sec)"
+    scoped_fire_rate=1.0 / 4.0,
+    scoped_zoom=[1.15],
+    scoped_recoil_mult=0.65,
+    burst_count=4,
+    secondary_fire_mode="Sử dụng kính ngắm 1.15x, bắn chùm 4 viên, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 4 viên/s",
+    description="SMG xả đạn cực nhanh 18 viên/s · Ngắm 1.15x bắn chùm 4 viên (4 viên/s)"
 )
 ump = UMP
 
@@ -220,14 +241,14 @@ M014 = Weapon(
     reserve=25,
     price=900,
     category="SHOTGUN",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (8.0, {"body": 22, "head": 44, "legs": 19}),
         (12.0, {"body": 17, "head": 34, "legs": 14}),
         (50.0, {"body": 9, "head": 18, "legs": 8}),
     ],
     reload_time=2.2,
-    description="Close-range semi-auto shotgun"
+    description="Shotgun bán tự động cận chiến (1.1 viên/s)"
 )
 m014 = M014
 
@@ -239,14 +260,14 @@ MAG7 = Weapon(
     reserve=28,
     price=1500,
     category="SHOTGUN",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (10.0, {"body": 17, "head": 34, "legs": 14}),
-        (10.0, {"body": 13, "head": 26, "legs": 11}),
+        (15.0, {"body": 13, "head": 26, "legs": 11}),
         (50.0, {"body": 10, "head": 20, "legs": 9}),
     ],
     reload_time=2.0,
-    description="High-capacity 7-round shotgun"
+    description="Shotgun tự động hoàn toàn 7 viên (7 viên/s)"
 )
 mag7 = MAG7
 MAG_7 = MAG7
@@ -265,12 +286,16 @@ AK47 = Weapon(
     reserve=75,
     price=2900,
     category="RIFLE",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (50.0, {"body": 40, "head": 160, "legs": 34}),
     ],
     reload_time=1.9,
-    description="High-damage assault rifle, One-shot Headshot"
+    scoped_fire_rate=1.0 / 8.32,
+    scoped_zoom=[1.25],
+    scoped_recoil_mult=0.7,
+    secondary_fire_mode="Sử dụng kính ngắm 1.25x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 8.32 viên/s",
+    description="Súng trường uy lực cao, One-shot Headshot mọi tầm bắn"
 )
 ak47 = AK47
 AK_47 = AK47
@@ -285,12 +310,16 @@ VANDAL = Weapon(
     reserve=75,
     price=2900,
     category="RIFLE",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (50.0, {"body": 40, "head": 160, "legs": 34}),
     ],
     reload_time=1.9,
-    description="High-damage Vandal rifle, One-shot Headshot"
+    scoped_fire_rate=1.0 / 8.32,
+    scoped_zoom=[1.25],
+    scoped_recoil_mult=0.7,
+    secondary_fire_mode="Sử dụng kính ngắm 1.25x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 8.32 viên/s",
+    description="Súng trường Vandal uy lực cao, One-shot Headshot mọi tầm bắn"
 )
 vandal = VANDAL
 
@@ -302,14 +331,18 @@ M416 = Weapon(
     reserve=90,
     price=2900,
     category="RIFLE",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (15.0, {"body": 39, "head": 156, "legs": 33}),
         (30.0, {"body": 35, "head": 140, "legs": 29}),
         (50.0, {"body": 31, "head": 124, "legs": 26}),
     ],
     reload_time=1.8,
-    description="Fast fire-rate 30-round rifle, stable recoil"
+    scoped_fire_rate=1.0 / 9.9,
+    scoped_zoom=[1.25],
+    scoped_recoil_mult=0.7,
+    secondary_fire_mode="Sử dụng kính ngắm 1.25x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 9.9 viên/s",
+    description="Súng trường 30 viên ổn định · Ngắm 1.25x (9.9 viên/s)"
 )
 m416 = M416
 
@@ -322,14 +355,18 @@ PHANTOM = Weapon(
     reserve=90,
     price=2900,
     category="RIFLE",
-    fire_mode="Full-Auto",
+    fire_mode="Tự động hoàn toàn",
     damage_table=[
         (15.0, {"body": 39, "head": 156, "legs": 33}),
         (30.0, {"body": 35, "head": 140, "legs": 29}),
         (50.0, {"body": 31, "head": 124, "legs": 26}),
     ],
     reload_time=1.8,
-    description="Fast fire-rate Phantom rifle, stable recoil"
+    scoped_fire_rate=1.0 / 9.9,
+    scoped_zoom=[1.25],
+    scoped_recoil_mult=0.7,
+    secondary_fire_mode="Sử dụng kính ngắm 1.25x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 9.9 viên/s",
+    description="Súng trường Phantom 30 viên ổn định · Ngắm 1.25x (9.9 viên/s)"
 )
 phantom = PHANTOM
 
@@ -341,12 +378,16 @@ GUARDIAN = Weapon(
     reserve=36,
     price=2700,
     category="RIFLE",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (50.0, {"body": 65, "head": 195, "legs": 49}),
     ],
     reload_time=2.0,
-    description="Semi-auto rifle with massive damage"
+    scoped_fire_rate=1.0 / 6.5,
+    scoped_zoom=[1.5],
+    scoped_recoil_mult=0.65,
+    secondary_fire_mode="Sử dụng kính ngắm 1.5x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 6.5 viên/s",
+    description="Súng trường bán tự động uy lực cực lớn · Ngắm 1.5x (6.5 viên/s)"
 )
 guardian = GUARDIAN
 
@@ -363,12 +404,16 @@ AWM = Weapon(
     reserve=15,
     price=4500,
     category="SNIPER",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (50.0, {"body": 150, "head": 255, "legs": 120}),
     ],
     reload_time=2.5,
-    description="Devastating sniper rifle, One-shot Body"
+    scoped_fire_rate=1.0 / 0.75,
+    scoped_zoom=[2.5, 5.0],
+    scoped_recoil_mult=0.5,
+    secondary_fire_mode="Sử dụng kính ngắm 2.5x và 5x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 0.75 viên/s",
+    description="Súng ngắm tối thượng, One-shot Body mọi cự ly · Ngắm 2.5x và 5.0x"
 )
 awm = AWM
 
@@ -380,12 +425,16 @@ M24 = Weapon(
     reserve=15,
     price=1100,
     category="SNIPER",
-    fire_mode="Semi-Auto",
+    fire_mode="Bán tự động",
     damage_table=[
         (50.0, {"body": 101, "head": 202, "legs": 85}),
     ],
     reload_time=2.2,
-    description="Lightweight mobile sniper rifle, low cost"
+    scoped_fire_rate=1.0 / 1.2,
+    scoped_zoom=[2.5],
+    scoped_recoil_mult=0.5,
+    secondary_fire_mode="Sử dụng kính ngắm 2.5x, giảm nhẹ giãn hồng tâm - Tốc độ bắn: 1.2 viên/s",
+    description="Súng ngắm cơ động, giá rẻ · Ngắm 2.5x (1.2 viên/s)"
 )
 m24 = M24
 
@@ -407,7 +456,7 @@ KNIFE = Weapon(
         (8.0, {"body": 50, "head": 50, "legs": 50}),
     ],
     reload_time=0.0,
-    description="Melee knife: Left-click 50, Right-click 80 damage (8m range)"
+    description="Dao găm cận chiến: Tầm sử dụng 0 ~ 8m · Đòn đâm chuột trái: 50, Đòn đâm chuột phải: 80"
 )
 knife = KNIFE
 

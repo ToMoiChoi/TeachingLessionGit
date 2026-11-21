@@ -85,7 +85,10 @@ SCOPE_CONFIG = {
     "M014": {"levels": [1.15], "dark": False},
     "MAG-7": {"levels": [1.15], "dark": False},
     "AK-47": {"levels": [1.5], "dark": False},
+    "AK47": {"levels": [1.5], "dark": False},
+    "VANDAL": {"levels": [1.5], "dark": False},
     "M416": {"levels": [1.6], "dark": False},
+    "PHANTOM": {"levels": [1.6], "dark": False},
     "GUARDIAN": {"levels": [2.0], "dark": False},
     "M24": {"levels": [2.5, 5.0], "dark": True},
     "AWM": {"levels": [2.5, 5.0], "dark": True},
@@ -1201,7 +1204,7 @@ def handle_mouse_down(event):
     elif event.button == 3:
         if shop_open:
             handle_shop_click(event.pos, button=3)  # chuột phải trong shop = bán
-        elif game_state == "ROUND":
+        elif game_state in ("BUY", "ROUND", "ROUND_END"):
             if holding_knife():
                 melee_attack(is_right_click=True)
             elif player.weapon in SCOPE_WEAPONS and held_item is None and player.alive and not player.reloading:
