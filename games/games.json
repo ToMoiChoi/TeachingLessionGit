@@ -14,29 +14,44 @@
   },
   {
     "id": "baonam",
-    "title": "Blade Master 2D",
+    "title": "Chú Thuật Hồi Chiến: Đại Chiến Chú Thuật",
     "author": "Bảo Nam",
-    "description": "Game đối kháng 2D: chọn bản đồ, nhân vật, mua đồ trong shop rồi chiến với các boss.",
-    "tag": "Đối kháng",
-    "emoji": "⚔️",
-    "color": "#2f9e44",
+    "description": "Game đối kháng 2D chủ đề Jujutsu Kaisen: hóa thân thành 8 Chú Thuật Sư huyền thoại, khai triển Thuật Thức, nổ Hắc Thiểm và mở Bành Trướng Lãnh Địa thanh tẩy 5 Đặc Cấp Chú Linh.",
+    "tag": "Đối kháng JJK",
+    "emoji": "🤞",
+    "color": "#7950f2",
     "playable": true,
-    "stats": { "files": 7, "lines": 1417 },
-    "features": ["3 nhân vật, 3 bản đồ, nhiều màn boss", "Đòn nhẹ, đòn nặng, kỹ năng, đỡ đòn", "Cửa hàng nâng cấp bằng vàng", "Hiệu ứng hạt và âm thanh"],
-    "controls": [["A / D", "Di chuyển"], ["W / Space", "Nhảy"], ["E", "Đòn nhẹ"], ["Y", "Đòn nặng"], ["C", "Kỹ năng"], ["Z", "Đỡ đòn"]]
+    "stats": { "files": 10, "lines": 3225 },
+    "features": [
+      "8 Chú Thuật Sư & Thuật Thức (Gojo, Sukuna, Megumi, Yuta, Inumaki, Kamo, Nobara, Nanami)",
+      "Bành Trướng Lãnh Địa (Trúng Đích Tuyệt Đối) & Giản Dị Lãnh Địa khắc chế",
+      "Hắc Thiểm tia sét đen-đỏ x2.5 sát thương & Nghịch Chuyển Thuật Thức hồi phục",
+      "Triệu hồi Thức Thần (Mahoraga, Rika, Ngọc Khuyển...) & Kho Chú Cụ Đặc Cấp"
+    ],
+    "controls": [
+      ["A / D", "Di chuyển (Shift: Lướt nhanh)"],
+      ["W / Space", "Nhảy 2 bậc (S: Ngồi thủ)"],
+      ["E", "Đánh Chú Lực / Nổ Hắc Thiểm"],
+      ["Y", "Thuật Thức 1 (Xanh/Đỏ, Bổ, Xuyên Huyết...)"],
+      ["C", "Tuyệt Kỹ (Hư Thức Tím, Fuga, Cộng Hưởng...)"],
+      ["F", "Triệu hồi Thức Thần / Chú Cụ"],
+      ["Z", "Giản Dị Lãnh Địa (Parry & Chặn Sure-Hit)"],
+      ["X", "Nghịch Chuyển Thuật Thức (Hồi HP)"],
+      ["R", "Bành Trướng Lãnh Địa (100% LĐ)"]
+    ]
   },
   {
     "id": "cyberesc",
     "title": "CyberEsc",
     "author": "cyberesc",
-    "description": "Game platformer 2D phong cách Cyberpunk: vượt qua 8 màn chơi, đánh boss, nâng cấp nhân vật.",
+    "description": "Game platformer 2D phong cách Cyberpunk: 16 màn chơi qua 7 bối cảnh, đánh boss, tùy biến nhân vật 4 slot trang bị & 8 loại vũ khí.",
     "tag": "Platformer",
     "emoji": "🤖",
     "color": "#7048e8",
     "playable": true,
-    "stats": { "files": 23, "lines": 2151 },
-    "features": ["8 màn chơi, mỗi màn là một file riêng", "3 loại súng và chém kiếm", "Lưu tiến trình, cửa hàng trang phục", "Tách riêng phần logic và phần vẽ hình"],
-    "controls": [["A / D", "Di chuyển"], ["W / Space", "Nhảy"], ["Chuột trái / K", "Bắn"], ["Chuột phải / J", "Chém"], ["1 2 3", "Đổi súng"], ["Esc", "Tạm dừng"]]
+    "stats": { "files": 31, "lines": 2750 },
+    "features": ["16 màn chơi qua 7 bối cảnh + Chế độ Vô Tận", "8 loại vũ khí (SMG, Laser, Lựu đạn, Plasma, Railgun) và chém phản đạn", "Tùy biến nhân vật 4 slot: Mũ, Costume, Cánh/Jetpack, Chip phụ trợ có preview trực tiếp", "Lưu tiến trình, nhiệm vụ ngày, vật lý nhảy & tiếp đất mượt mà"],
+    "controls": [["A / D", "Di chuyển"], ["W / Space", "Nhảy"], ["Chuột trái / K", "Bắn"], ["Chuột phải / J", "Chém"], ["Q / E / F", "Lướt / Khiên / Làm chậm"], ["1 – 8", "Đổi vũ khí"], ["Esc", "Tạm dừng"]]
   },
   {
     "id": "football",
