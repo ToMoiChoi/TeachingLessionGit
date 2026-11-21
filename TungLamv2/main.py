@@ -64,7 +64,8 @@ def save_screenshot(tag="manual"):
 def set_mouse_mode(gui):
     try:
         pygame.mouse.set_visible(gui)
-        pygame.event.set_grab(not gui)
+        if not IS_WEB:
+            pygame.event.set_grab(not gui)
         pygame.mouse.get_rel()
     except Exception:
         pass
@@ -276,12 +277,13 @@ shop_open = False
 dim_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 dim_surface.fill((0, 0, 0, 165))
 
-# FONT TIẾNG VIỆT DÙNG CHUNG DESKTOP & WEB
-font_title = get_font(54, bold=True)
-font_big = get_font(28, bold=True)
-font_mid = get_font(21, bold=True)
-font_small = get_font(16, bold=True)
-font_tiny = get_font(14)
+# FONT TIẾNG VIỆT TỰ CO GIÃN THEO ĐỘ PHÂN GIẢI (1024x576 WEB / 1600x900 DESKTOP)
+_UI_K = HEIGHT / 900.0
+font_title = get_font(max(30, int(54 * _UI_K)), bold=True)
+font_big = get_font(max(19, int(28 * _UI_K)), bold=True)
+font_mid = get_font(max(15, int(21 * _UI_K)), bold=True)
+font_small = get_font(max(12, int(16 * _UI_K)), bold=True)
+font_tiny = get_font(max(11, int(14 * _UI_K)))
 
 notice_text, notice_timer = "", 0.0
 
@@ -292,8 +294,17 @@ def notice(text, seconds=2.2):
     notice_timer = seconds
 
 
+_main_text_cache = {}
+
+
 def draw_text(text, font, color, **anchor):
-    img = font.render(text, True, color)
+    key = (id(font), text, color)
+    img = _main_text_cache.get(key)
+    if img is None:
+        if len(_main_text_cache) > 256:
+            _main_text_cache.clear()
+        img = font.render(text, True, color)
+        _main_text_cache[key] = img
     rect = img.get_rect(**anchor)
     screen.blit(img, rect)
     return rect
@@ -739,26 +750,36 @@ def match_in_progress():
 
 def menu_layout():
     cx = WIDTH // 2
+    k = HEIGHT / 900.0
     # Hàng 1: 3 Chế độ chơi
     mode_rects = []
-    mw, mh, mgap = 330, 62, 18
+    mgap = max(10, int(18 * k))
+    mw = min(330, (WIDTH - 64 - 2 * mgap) // 3)
+    mh = max(42, int(62 * k))
+    my = int(178 * k)
     m_start_x = cx - (len(GAME_MODES) * mw + (len(GAME_MODES) - 1) * mgap) // 2
     for i, m in enumerate(GAME_MODES):
-        mode_rects.append((pygame.Rect(m_start_x + i * (mw + mgap), 178, mw, mh), m["id"]))
+        mode_rects.append((pygame.Rect(m_start_x + i * (mw + mgap), my, mw, mh), m["id"]))
 
     # Hàng 2: 3 Độ khó
     diff_rects = []
-    dw, dh, dgap = 165, 42, 14
+    dw = max(128, int(165 * k))
+    dh = max(30, int(42 * k))
+    dgap = max(10, int(14 * k))
+    dy = int(266 * k)
     d_start_x = cx - (len(DIFFICULTIES) * dw + (len(DIFFICULTIES) - 1) * dgap) // 2
     for i, d in enumerate(DIFFICULTIES):
-        diff_rects.append((pygame.Rect(d_start_x + i * (dw + dgap), 262, dw, dh), d["id"]))
+        diff_rects.append((pygame.Rect(d_start_x + i * (dw + dgap), dy, dw, dh), d["id"]))
 
     # Hàng 3: 5 Bản đồ
     map_rects = []
-    cw, ch, cgap = 252, 195, 16
+    cgap = max(8, int(16 * k))
+    cw = min(252, (WIDTH - 56 - 4 * cgap) // 5)
+    ch = max(126, int(195 * k))
+    cy = int(342 * k)
     c_start_x = cx - (len(MAP_ORDER) * cw + (len(MAP_ORDER) - 1) * cgap) // 2
     for i, mid in enumerate(MAP_ORDER):
-        map_rects.append((pygame.Rect(c_start_x + i * (cw + cgap), 342, cw, ch), mid))
+        map_rects.append((pygame.Rect(c_start_x + i * (cw + cgap), cy, cw, ch), mid))
 
     # Hàng 4: Các nút bấm hành động
     btn_specs = []
@@ -770,10 +791,13 @@ def menu_layout():
     if not IS_WEB:
         btn_specs.append(("THOÁT", "quit", (60, 68, 86)))
 
-    bw, bh, bgap = 250, 56, 20
+    bw = max(180, int(250 * k))
+    bh = max(40, int(56 * k))
+    bgap = max(12, int(20 * k))
+    by = int(572 * k)
     b_start_x = cx - (len(btn_specs) * bw + (len(btn_specs) - 1) * bgap) // 2
     action_rects = [
-        (pygame.Rect(b_start_x + i * (bw + bgap), 575, bw, bh), label, action, col)
+        (pygame.Rect(b_start_x + i * (bw + bgap), by, bw, bh), label, action, col)
         for i, (label, action, col) in enumerate(btn_specs)
     ]
     return mode_rects, diff_rects, map_rects, action_rects
@@ -801,26 +825,28 @@ def menu_action(action):
 
 
 def draw_menu():
+    k = HEIGHT / 900.0
+    hdr_h = int(138 * k)
     active_theme = get_active_map()["theme"]
     screen.fill((14, 18, 28))
-    pygame.draw.rect(screen, active_theme["sky_bot"], (0, 0, WIDTH, 138))
-    pygame.draw.line(screen, active_theme["accent"], (0, 138), (WIDTH, 138), 3)
+    pygame.draw.rect(screen, active_theme["sky_bot"], (0, 0, WIDTH, hdr_h))
+    pygame.draw.line(screen, active_theme["accent"], (0, hdr_h), (WIDTH, hdr_h), 3)
 
     cx = WIDTH // 2
-    draw_text("LOTUS TACTICAL FPS", font_title, (245, 247, 252), center=(cx, 50))
+    draw_text("LOTUS TACTICAL FPS", font_title, (245, 247, 252), center=(cx, int(48 * k)))
     stats_str = (
         f"Kỷ lục Sinh tồn: Đợt {profile.get('best_wave', 0)}   ·   "
         f"Tổng hạ gục: {profile.get('total_kills', 0)}   ·   "
         f"Zombie đã diệt: {profile.get('zombie_kills', 0)}   ·   "
         f"Trận thắng: {profile.get('matches_won', 0)}"
     )
-    draw_text(stats_str, font_small, (210, 225, 245), center=(cx, 106))
+    draw_text(stats_str, font_small, (210, 225, 245), center=(cx, int(104 * k)))
 
     mouse = pygame.mouse.get_pos()
     mode_rects, diff_rects, map_rects, action_rects = menu_layout()
 
     # 1. Chọn chế độ chơi
-    draw_text("CHẾ ĐỘ CHƠI:", font_small, (165, 178, 200), midleft=(mode_rects[0][0].left, 158))
+    draw_text("CHẾ ĐỘ CHƠI:", font_small, (165, 178, 200), midleft=(mode_rects[0][0].left, mode_rects[0][0].top - int(16 * k)))
     for rect, mid in mode_rects:
         m = MODE_BY_ID[mid]
         sel = mid == selected_mode_id
@@ -828,11 +854,11 @@ def draw_menu():
         bg = m["color"] if sel else ((44, 52, 70) if hov else (28, 33, 46))
         pygame.draw.rect(screen, bg, rect, border_radius=8)
         pygame.draw.rect(screen, (255, 255, 255) if sel else m["color"], rect, 2, border_radius=8)
-        draw_text(m["name"], font_mid, (255, 255, 255), center=(rect.centerx, rect.y + 21))
-        draw_text(m["short"], font_tiny, (235, 240, 248) if sel else (170, 180, 198), center=(rect.centerx, rect.y + 45))
+        draw_text(m["name"], font_mid, (255, 255, 255), center=(rect.centerx, rect.y + int(rect.h * 0.36)))
+        draw_text(m["short"], font_tiny, (235, 240, 248) if sel else (170, 180, 198), center=(rect.centerx, rect.y + int(rect.h * 0.74)))
 
     desc_txt = MODE_BY_ID[selected_mode_id]["desc"]
-    draw_text(desc_txt, font_tiny, (195, 210, 230), midleft=(mode_rects[0][0].left, 248))
+    draw_text(desc_txt, font_tiny, (195, 210, 230), midleft=(mode_rects[0][0].left, mode_rects[0][0].bottom + int(12 * k)))
 
     # 2. Chọn độ khó
     for rect, did in diff_rects:
@@ -845,9 +871,9 @@ def draw_menu():
         txt_col = (18, 22, 28) if sel else (240, 242, 248)
         draw_text(f"ĐỘ KHÓ: {d['name']}", font_small, txt_col, center=rect.center)
 
-    # 3. Chọn 1 trong 5 bản đồ (có ảnh sơ đồ trực quan)
+    # 3. Chọn 1 trong 5 bản đồ
     cur_map = get_active_map_id()
-    draw_text("CHỌN BẢN ĐỒ (5 MAPS):", font_small, (165, 178, 200), midleft=(map_rects[0][0].left, 322))
+    draw_text("CHỌN BẢN ĐỒ (5 MAPS):", font_small, (165, 178, 200), midleft=(map_rects[0][0].left, map_rects[0][0].top - int(16 * k)))
     for rect, map_id in map_rects:
         m = MAPS[map_id]
         sel = map_id == cur_map
@@ -857,12 +883,14 @@ def draw_menu():
         pygame.draw.rect(screen, bg, rect, border_radius=10)
         pygame.draw.rect(screen, accent if sel else (65, 75, 96), rect, 3 if sel else 1, border_radius=10)
 
-        thumb = _get_map_thumb(map_id, rect.w - 20, 112)
-        screen.blit(thumb, (rect.x + 10, rect.y + 10))
-        pygame.draw.rect(screen, accent if sel else (55, 62, 78), (rect.x + 10, rect.y + 10, rect.w - 20, 112), 1)
+        pad_m = max(6, int(10 * k))
+        th_h = max(64, int(rect.h * 0.56))
+        thumb = _get_map_thumb(map_id, rect.w - pad_m * 2, th_h)
+        screen.blit(thumb, (rect.x + pad_m, rect.y + pad_m))
+        pygame.draw.rect(screen, accent if sel else (55, 62, 78), (rect.x + pad_m, rect.y + pad_m, rect.w - pad_m * 2, th_h), 1)
 
-        draw_text(m["name"], font_mid, accent if sel else (240, 244, 250), center=(rect.centerx, rect.y + 142))
-        draw_text(m["subtitle"], font_tiny, (180, 190, 208), center=(rect.centerx, rect.y + 168))
+        draw_text(m["name"], font_small, accent if sel else (240, 244, 250), center=(rect.centerx, rect.y + pad_m + th_h + int(rect.h * 0.14)))
+        draw_text(m["subtitle"], font_tiny, (180, 190, 208), center=(rect.centerx, rect.y + pad_m + th_h + int(rect.h * 0.28)))
 
     # 4. Nút Bắt đầu / Tiếp tục
     for rect, label, _, col in action_rects:
@@ -875,12 +903,12 @@ def draw_menu():
     # 5. Hướng dẫn phím bấm dưới chân trang
     hint = (145, 158, 180)
     draw_text(
-        "WASD: Di chuyển  ·  Chuột trái: Bắn / Chém  ·  Chuột phải: Ngắm ADS / Ống nhòm  ·  [B]: Cửa hàng  ·  [N]: Bỏ qua chờ mua",
-        font_tiny, hint, center=(cx, HEIGHT - 54),
+        "WASD: Di chuyển · Chuột/Phím ←→: Ngắm · Chuột trái: Bắn · Chuột phải: Ngắm ADS · [B]: Shop · [N]: Vào trận ngay",
+        font_tiny, hint, center=(cx, HEIGHT - max(32, int(52 * k))),
     )
     draw_text(
-        "1: Dao  ·  2: Súng lục  ·  3: Súng chính  ·  4: Khói  ·  5: Lửa  ·  6: Bom  ·  R: Nạp đạn  ·  F/G: Nhặt/Vứt súng  ·  Space/Ctrl: Nhảy/Ngồi",
-        font_tiny, hint, center=(cx, HEIGHT - 28),
+        "1: Dao · 2: Súng lục · 3: Súng chính · 4/5/6: Khói/Lửa/Bom · [R]: Nạp đạn · [F]/[G]: Nhặt/Vứt · Space/Ctrl: Nhảy/Ngồi",
+        font_tiny, hint, center=(cx, HEIGHT - max(14, int(26 * k))),
     )
 
 
@@ -1058,17 +1086,24 @@ def toggle_shop(open_it):
 
 
 def shop_layout():
-    pw = 860
-    ph = min(610, HEIGHT - 20)
+    k = HEIGHT / 900.0
+    pw = min(860, WIDTH - 32)
+    ph = min(int(610 * max(0.84, k)), HEIGHT - 16)
     panel = pygame.Rect((WIDTH - pw) // 2, (HEIGHT - ph) // 2, pw, ph)
+    tab_h = max(28, int(38 * k))
+    tab_y = panel.y + max(52, int(68 * k))
     tab_w = (pw - 40) // len(SHOP_CATEGORIES)
     tabs = [
-        (pygame.Rect(panel.x + 20 + i * tab_w, panel.y + 70, tab_w - 4, 38), cat)
+        (pygame.Rect(panel.x + 20 + i * tab_w, tab_y, tab_w - 4, tab_h), cat)
         for i, cat in enumerate(SHOP_CATEGORIES)
     ]
+    items = SHOP_TABS[current_shop_tab]
+    avail_h = ph - (tab_y - panel.y + tab_h + 44)
+    row_step = min(64, max(44, avail_h // max(1, len(items))))
+    row_h = row_step - 6
     rows = [
-        (pygame.Rect(panel.x + 24, panel.y + 120 + i * 64, pw - 48, 56), iid)
-        for i, iid in enumerate(SHOP_TABS[current_shop_tab])
+        (pygame.Rect(panel.x + 24, tab_y + tab_h + 10 + i * row_step, pw - 48, row_h), iid)
+        for i, iid in enumerate(items)
     ]
     return panel, tabs, rows
 
@@ -1410,8 +1445,16 @@ def draw_weapon_slots():
         font_tiny, mode_info["color"], topleft=(24, 48),
     )
     draw_text(f"Hạ gục: {kills} (Zombie: {zombie_kills_match})", font_tiny, (205, 215, 230), topleft=(24, 68))
+    cur_fps = int(round(clock.get_fps()))
+    if cur_fps > 0:
+        fps_col = (95, 235, 130) if cur_fps >= 55 else ((245, 200, 65) if cur_fps >= 40 else (240, 75, 75))
+        draw_text(f"FPS: {cur_fps}", font_tiny, fps_col, topleft=(24, 88))
 
-    x, y = WIDTH - 235, 235
+    slot_w = 185 if IS_WEB else 220
+    slot_h = 28 if IS_WEB else 36
+    slot_step = 32 if IS_WEB else 40
+    x = WIDTH - slot_w - 14
+    y = minimap.margin + minimap.height + 24
     sec = current_secondary if current_secondary in owned else None
     pri = current_primary if current_primary in owned else None
     rows = [
@@ -1437,7 +1480,7 @@ def draw_weapon_slots():
         rows.append((4 + i, label, held_item == g, have, g))
 
     for i, (key, label, active, have, w_id) in enumerate(rows):
-        rect = pygame.Rect(x, y + i * 40, 220, 36)
+        rect = pygame.Rect(x, y + i * slot_step, slot_w, slot_h)
         bg = (220, 60, 70) if active else ((40, 46, 62) if have else (26, 28, 36))
         pygame.draw.rect(screen, bg, rect, border_radius=6)
         color = (255, 255, 255) if have else (110, 115, 130)
@@ -1467,6 +1510,14 @@ def update_player_movement(dt):
     slow = player.crouching or keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
     step = player.speed * (0.48 if slow else 1.0) * dt
     player.move(mx * step, my * step, walls)
+
+    # Hỗ trợ xoay góc nhìn mượt bằng phím mũi tên hoặc Q/E (rất tiện trên Web khi iframe chặn khóa chuột)
+    turn = (int(keys[pygame.K_RIGHT] or keys[pygame.K_e]) - int(keys[pygame.K_LEFT] or keys[pygame.K_q]))
+    if turn:
+        player.angle = (player.angle + turn * (2.4 / scope_zoom) * dt) % math.tau
+    pitch_turn = int(keys[pygame.K_UP]) - int(keys[pygame.K_DOWN])
+    if pitch_turn:
+        player.pitch = max(-player.max_pitch, min(player.max_pitch, player.pitch + pitch_turn * 1.5 * dt))
 
 
 def melee_attack(is_right_click=False):
@@ -1803,7 +1854,8 @@ async def main():
     set_mouse_mode(True)
 
     while running:
-        dt = min(0.05, clock.tick(FPS) / 1000.0)
+        # Trên Web pygbag: await asyncio.sleep(0) đã đồng bộ đúng 60Hz của trình duyệt, không gọi SDL_Delay lần 2
+        dt = min(0.05, clock.tick(0 if IS_WEB else FPS) / 1000.0)
         in_play = game_state in ("BUY", "ROUND", "ROUND_END")
 
         for event in pygame.event.get():

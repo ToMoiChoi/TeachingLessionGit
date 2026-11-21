@@ -1,6 +1,12 @@
-WIDTH = 1600
-HEIGHT = 900
-FPS = 120
+import sys
+
+IS_WEB = sys.platform == "emscripten"
+
+# Bản Web dùng khung 16:9 chuẩn (1024x576) để pygbag phóng toàn màn bằng GPU và giữ vững 60 FPS;
+# Bản Desktop giữ nguyên Full HD+ (1600x900) 120 FPS.
+WIDTH = 1024 if IS_WEB else 1600
+HEIGHT = 576 if IS_WEB else 900
+FPS = 60 if IS_WEB else 120
 
 MAP_W = 1800
 MAP_H = 1200

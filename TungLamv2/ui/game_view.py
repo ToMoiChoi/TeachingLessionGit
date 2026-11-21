@@ -328,21 +328,28 @@ class GameView:
             w_txt = self.font_mid.render(f"BOM NỔ SAU: {max(0.0, bomb_fuse):.1f}s", True, (255, 255, 255))
             self.screen.blit(w_txt, (cx - w_txt.get_width() // 2, by + 10))
 
-        # Màn chờ Mua sắm (Buy Phase)
+        # Màn chờ Mua sắm (khung banner gọn sắc nét, không phủ mờ toàn màn hình để giữ 60 FPS trên Web)
         if game_state == "BUY":
-            self.screen.blit(self._buy_overlay, (0, 0))
             title_str = buy_subtitle or "GIAI ĐOẠN MUA SẮM"
             t1 = self.font_big.render(title_str, True, (245, 245, 245))
-            self.screen.blit(t1, (cx - t1.get_width() // 2, 165))
             t2 = self.font_mid.render(f"Bắt đầu sau: {max(0, int(buy_timer))}s", True, (255, 215, 60))
-            self.screen.blit(t2, (cx - t2.get_width() // 2, 218))
             t3 = self.font_small.render("Bấm [B] mở Cửa hàng  ·  Bấm [N] vào trận ngay", True, (215, 225, 235))
-            self.screen.blit(t3, (cx - t3.get_width() // 2, 252))
+            box_w = max(t1.get_width(), t3.get_width()) + 44
+            box_y = max(84, int(self.height * 0.16))
+            pygame.draw.rect(self.screen, (14, 18, 26), (cx - box_w // 2, box_y, box_w, 112), border_radius=10)
+            pygame.draw.rect(self.screen, (220, 65, 75), (cx - box_w // 2, box_y, box_w, 112), 2, border_radius=10)
+            self.screen.blit(t1, (cx - t1.get_width() // 2, box_y + 10))
+            self.screen.blit(t2, (cx - t2.get_width() // 2, box_y + 54))
+            self.screen.blit(t3, (cx - t3.get_width() // 2, box_y + 84))
 
-        # Chớp đỏ khi dính sát thương (dùng set_alpha trên Surface thường siêu nhẹ)
+        # Viền cảnh báo đỏ kiểu FPS hiện đại khi trúng đòn (không che khuất tầm nhìn súng & siêu nhẹ!)
         if hit_flash_timer > 0:
-            self._hit_overlay.set_alpha(min(140, int(125 * (hit_flash_timer / 0.15))))
-            self.screen.blit(self._hit_overlay, (0, 0))
+            thick = max(6, int(22 * min(1.0, hit_flash_timer / 0.18)))
+            col_hit = (225, 32, 38)
+            pygame.draw.rect(self.screen, col_hit, (0, 0, self.width, thick))
+            pygame.draw.rect(self.screen, col_hit, (0, self.height - thick, self.width, thick))
+            pygame.draw.rect(self.screen, col_hit, (0, 0, thick, self.height))
+            pygame.draw.rect(self.screen, col_hit, (self.width - thick, 0, thick, self.height))
 
         # Minimap
         minimap.draw(
