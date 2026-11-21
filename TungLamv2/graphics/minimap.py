@@ -2,6 +2,7 @@
 import math
 import pygame
 
+import sys
 from settings import MAP_W, MAP_H, GREEN, RED, WHITE
 from font_vn import get_font
 from game.map import line_blocked, check_smoke_blocks, get_active_map
@@ -9,10 +10,10 @@ from game.map import line_blocked, check_smoke_blocks, get_active_map
 
 class Minimap:
     def __init__(self):
-        self.scale = 0.15
+        self.scale = 0.105 if sys.platform == "emscripten" else 0.15
         self.width = int(MAP_W * self.scale)
         self.height = int(MAP_H * self.scale)
-        self.margin = 20
+        self.margin = 14 if sys.platform == "emscripten" else 20
         self._bg_cache_key = None
         self._bg_surf = None
         self._circle_cache = {}

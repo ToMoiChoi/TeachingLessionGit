@@ -29,11 +29,22 @@ class HUD:
         self._header_panel = pygame.Surface((self.header_w, self.header_h), pygame.SRCALPHA)
         self._header_panel.fill((14, 18, 24, 215))
         pygame.draw.rect(self._header_panel, (55, 65, 80, 225), (0, 0, self.header_w, self.header_h), 1, border_radius=8)
+        self._text_cache = {}
+
+    def _render_cached(self, font, text, color):
+        key = (id(font), text, color)
+        img = self._text_cache.get(key)
+        if img is None:
+            if len(self._text_cache) > 192:
+                self._text_cache.clear()
+            img = font.render(text, True, color)
+            self._text_cache[key] = img
+        return img
 
     def draw_text(self, screen, text, x, y, color=WHITE, font=None):
         if font is None:
             font = self.font
-        screen.blit(font.render(text, True, color), (x, y))
+        screen.blit(self._render_cached(font, text, color), (x, y))
 
     def draw(
         self,
@@ -85,17 +96,17 @@ class HUD:
         screen.blit(self._header_panel, (cx - self.header_w // 2, 8))
 
         if header_title:
-            s_img = self.mid_font.render(header_title, True, (130, 250, 140))
+            s_img = self._render_cached(self.mid_font, header_title, (130, 250, 140))
             screen.blit(s_img, (cx - s_img.get_width() // 2, 13))
         else:
             score_text = f"{player_score}  -  {enemy_score}"
-            s_img = self.big_font.render(score_text, True, (255, 255, 255))
+            s_img = self._render_cached(self.big_font, score_text, (255, 255, 255))
             screen.blit(s_img, (cx - s_img.get_width() // 2, 11))
 
         if header_sub:
-            t_img = self.font_small.render(header_sub, True, (245, 215, 90))
+            t_img = self._render_cached(self.font_small, header_sub, (245, 215, 90))
         else:
             sec = max(0, int(round_timer))
             t_col = (255, 90, 90) if sec <= 10 else (225, 230, 240)
-            t_img = self.font_small.render(f"{sec}s", True, t_col)
+            t_img = self._render_cached(self.font_small, f"{sec}s", t_col)
         screen.blit(t_img, (cx - t_img.get_width() // 2, 50))

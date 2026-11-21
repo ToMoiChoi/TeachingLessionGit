@@ -3,6 +3,7 @@ import math
 import random
 import pygame
 
+import sys
 from settings import WIDTH, HEIGHT, FOV
 from font_vn import get_font
 from game.map import site_A, site_B, site_C, get_active_map
@@ -10,9 +11,9 @@ from game.map import site_A, site_B, site_C, get_active_map
 
 class Renderer:
     def __init__(self):
-        # 320 tia -> mỗi cột rộng đúng 5px trên màn 1600px (không sai số làm tròn, tăng tốc mạnh trên Web)
-        self.num_rays = 320
-        self.ray_width = WIDTH // self.num_rays
+        # Cột rộng 8px trên cả Web (1024/128=8) và Desktop (1600/200=8), gộp dải tường phẳng liên tiếp
+        self.num_rays = 128 if sys.platform == "emscripten" else 200
+        self.ray_width = max(1, WIDTH // self.num_rays)
         self.fov = math.radians(FOV)
         self.projection_plane = (WIDTH / 2.0) / math.tan(self.fov / 2.0)
 
@@ -202,12 +203,21 @@ class Renderer:
         proj_plane = self.projection_plane
         draw_rect = pygame.draw.rect
 
-        # 1 & 2. BẦU TRỜI + SÀN 3D CHỈ BẰNG 1 LỆNH BLIT DUY NHẤT!
-        strip_y = max(0, min(HEIGHT * 2, self._bg_center_y - horizon))
-        screen.blit(self._bg_strip, (0, 0), (0, strip_y, WIDTH, HEIGHT))
+        # 1 & 2. BẦU TRỜI + SÀN 3D BẰNG SDL_FillRect C SIÊU TỐC (NHANH HƠN BLIT SURFACE TRÊN WEB WASM!)
+        sky_top = theme["sky_top"]
+        sky_bot = theme["sky_bot"]
+        floor_far = theme["floor_far"]
+        floor_near = theme["floor_near"]
 
-        sky_h = horizon if horizon < HEIGHT else HEIGHT
+        sky_h = max(0, min(HEIGHT, horizon))
         if sky_h > 0:
+            mid_sky = ((sky_top[0] + sky_bot[0]) >> 1, (sky_top[1] + sky_bot[1]) >> 1, (sky_top[2] + sky_bot[2]) >> 1)
+            h1 = sky_h // 3
+            h2 = (sky_h * 2) // 3
+            draw_rect(screen, sky_top, (0, 0, WIDTH, h1 + 1))
+            draw_rect(screen, mid_sky, (0, h1, WIDTH, h2 - h1 + 1))
+            draw_rect(screen, sky_bot, (0, h2, WIDTH, sky_h - h2))
+
             draw_circle = pygame.draw.circle
             tau = math.tau
             pi = math.pi
@@ -221,6 +231,23 @@ class Renderer:
                     if 0 <= star_sx < WIDTH and 0 <= star_sy < sky_h:
                         draw_circle(screen, star_col, (star_sx, star_sy), star_sz)
 
+        floor_top = sky_h
+        if floor_top < HEIGHT:
+            fh = HEIGHT - floor_top
+            draw_rect(screen, floor_far, (0, floor_top, WIDTH, fh))
+            # 6 dải sàn phối cảnh mượt mà bằng SDL_FillRect C (chỉ 6 lệnh thay vì blit hàng triệu pixel)
+            bands = 6
+            for b in range(1, bands + 1):
+                k = (b / float(bands)) ** 1.5
+                by0 = floor_top + int(fh * ((b - 1) / float(bands)) ** 1.35)
+                by1 = floor_top + int(fh * (b / float(bands)) ** 1.35) + 1
+                col_f = (
+                    int(floor_far[0] + (floor_near[0] - floor_far[0]) * k),
+                    int(floor_far[1] + (floor_near[1] - floor_far[1]) * k),
+                    int(floor_far[2] + (floor_near[2] - floor_far[2]) * k),
+                )
+                draw_rect(screen, col_f, (0, by0, WIDTH, max(1, by1 - by0)))
+
         # 3. LỌC TRƯỚC CÁC CẠNH TƯỜNG ĐỐI DIỆN NGƯỜI CHƠI (CHỈ CHẠY 1 LẦN / FRAME)
         act_north = [(yw - py, x1, x2) for yw, x1, x2 in self._h_north if yw > py + 0.1]
         act_south = [(yw - py, x1, x2) for yw, x1, x2 in self._h_south if yw < py - 0.1]
@@ -233,6 +260,45 @@ class Renderer:
         sin = math.sin
         face_mults = (1.05, 0.88, 0.78, 1.15)
         wall_scale = proj_plane * 180.0
+
+        prev_key = None
+        span_x = 0
+        span_w = 0
+        span_top = 0
+        span_h = 0
+        span_col = None
+        span_fog = 0.0
+
+        def flush_span():
+            draw_rect(screen, span_col, (span_x, span_top, span_w, span_h))
+            br0, bg0, bb0 = span_col
+            base_h = span_h // 8
+            if base_h < 2:
+                base_h = 2
+            draw_rect(
+                screen,
+                (int(br0 * 0.55), int(bg0 * 0.55), int(bb0 * 0.60)),
+                (span_x, span_top + span_h - base_h, span_w, base_h),
+            )
+            trim_h = span_h // 12
+            if trim_h < 2:
+                trim_h = 2
+            tr = int(br0 * 1.30)
+            tg = int(bg0 * 1.30)
+            tb = int(bb0 * 1.35)
+            draw_rect(
+                screen,
+                (255 if tr > 255 else tr, 255 if tg > 255 else tg, 255 if tb > 255 else tb),
+                (span_x, span_top, span_w, trim_h),
+            )
+            stripe_h = span_h // 40
+            if stripe_h < 1:
+                stripe_h = 1
+            draw_rect(
+                screen,
+                (int(str_r0 * span_fog), int(str_g0 * span_fog), int(str_b0 * span_fog)),
+                (span_x, span_top + int(span_h * 0.55), span_w, stripe_h),
+            )
 
         for i, (ang_off, cos_off) in enumerate(self._ray_offsets):
             ray_ang = player_ang + ang_off
@@ -286,6 +352,9 @@ class Renderer:
                             hit_face = 3
 
             if closest_t >= 2199.0:
+                if prev_key is not None:
+                    flush_span()
+                    prev_key = None
                 z_buf[i] = 9999.0
                 continue
 
@@ -300,52 +369,30 @@ class Renderer:
             fog_w = 1.0 - (corrected_dist * 0.000714)
             if fog_w < 0.08:
                 fog_w = 0.08
-            shade = face_mults[hit_face] * fog_w
-            if hit_u < 4.0 or hit_u > 60.0:
-                shade *= 0.70
+            is_seam = hit_u < 4.5 or hit_u > 59.5
+            cur_key = (hit_face, is_seam, wall_h >> 2)
 
+            if cur_key == prev_key:
+                span_w += ray_w
+                continue
+
+            if prev_key is not None:
+                flush_span()
+
+            shade = face_mults[hit_face] * fog_w * (0.70 if is_seam else 1.0)
             br = int(wall_r0 * shade)
             bg = int(wall_g0 * shade)
             bb = int(wall_b0 * shade)
-            if br > 255:
-                br = 255
-            if bg > 255:
-                bg = 255
-            if bb > 255:
-                bb = 255
+            prev_key = cur_key
+            span_x = i * ray_w
+            span_w = ray_w
+            span_top = wall_top
+            span_h = wall_h
+            span_col = (255 if br > 255 else br, 255 if bg > 255 else bg, 255 if bb > 255 else bb)
+            span_fog = fog_w
 
-            rx = i * ray_w
-            draw_rect(screen, (br, bg, bb), (rx, wall_top, ray_w, wall_h))
-
-            base_h = wall_h // 8
-            if base_h < 2:
-                base_h = 2
-            draw_rect(
-                screen,
-                (int(br * 0.55), int(bg * 0.55), int(bb * 0.60)),
-                (rx, wall_top + wall_h - base_h, ray_w, base_h),
-            )
-
-            trim_h = wall_h // 12
-            if trim_h < 2:
-                trim_h = 2
-            tr = int(br * 1.30)
-            tg = int(bg * 1.30)
-            tb = int(bb * 1.35)
-            draw_rect(
-                screen,
-                (255 if tr > 255 else tr, 255 if tg > 255 else tg, 255 if tb > 255 else tb),
-                (rx, wall_top, ray_w, trim_h),
-            )
-
-            stripe_h = wall_h // 40
-            if stripe_h < 1:
-                stripe_h = 1
-            draw_rect(
-                screen,
-                (int(str_r0 * fog_w), int(str_g0 * fog_w), int(str_b0 * fog_w)),
-                (rx, wall_top + int(wall_h * 0.55), ray_w, stripe_h),
-            )
+        if prev_key is not None:
+            flush_span()
 
         # 4. CỘT MỐC 3D HOLOGRAM SITE A, B, C
         if not show_beacons:
