@@ -23,7 +23,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
   section { padding: 40px 0; }
   h2.sec { font-size: clamp(22px, 3vw, 28px); margin: 0 0 6px; letter-spacing: -.01em; }
   p.sec { margin: 0 0 24px; color: var(--muted); max-width: 680px; }
@@ -47,7 +47,9 @@
   .skill p { margin: 0; color: var(--muted); font-size: 14px; }
 
   /* Projects */
-  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 980px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
           box-shadow: var(--shadow); display: flex; flex-direction: column; }
   .cover { height: 120px; display: grid; place-items: center; font-size: 52px; position: relative; }

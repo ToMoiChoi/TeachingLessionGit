@@ -7,15 +7,15 @@ __pycache__/
 *.log
 
 # Moi truong ao / IDE
-.venv/
-venv/
+**/.venv/
+**/venv/
 .idea/
 .vscode/
 .claude/
 
 # Ban build tam (pygbag / PyInstaller) - tu sinh lai khi build
-*/build/
-*/dist/
+**/build/
+**/dist/
 web-cache/
 *.exe
 # File apk/tar.gz nam ngay trong thu muc code game (ban that nam o games/<id>/)
