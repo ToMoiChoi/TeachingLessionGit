@@ -61,14 +61,110 @@ def save_screenshot(tag="manual"):
         print(f"[Screenshot] Error: {e}")
 
 
+_WEB_LOCK_JS = """
+window._fpsLock = window._fpsLock || (function() {
+  var st = { want: false, dx: 0, dy: 0, locked: false };
+  function getCanvas() { return document.getElementById('canvas') || document.querySelector('canvas'); }
+  function tryLock() {
+    if (!st.want) return;
+    var c = getCanvas();
+    if (!c || document.pointerLockElement === c) return;
+    try {
+      var p = c.requestPointerLock ? c.requestPointerLock() : null;
+      if (p && typeof p.catch === 'function') p.catch(function(){});
+    } catch (e) {}
+  }
+  document.addEventListener('pointerlockchange', function() {
+    var c = getCanvas();
+    st.locked = !!(c && document.pointerLockElement === c);
+    st.dx = 0; st.dy = 0;
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!st.want) return;
+    if (st.locked) {
+      st.dx += (e.movementX || 0);
+      st.dy += (e.movementY || 0);
+    }
+  }, true);
+  document.addEventListener('mousedown', function() {
+    if (st.want) tryLock();
+  }, true);
+  return {
+    setWant: function(w) {
+      st.want = !!w;
+      st.dx = 0; st.dy = 0;
+      if (st.want) { tryLock(); }
+      else if (document.pointerLockElement && document.exitPointerLock) {
+        try { document.exitPointerLock(); } catch (e) {}
+      }
+    },
+    consume: function() {
+      var r = st.dx + ',' + st.dy + ',' + (st.locked ? '1' : '0');
+      st.dx = 0; st.dy = 0;
+      return r;
+    }
+  };
+})();
+"""
+_web_lock_ready = False
+_web_pointer_locked = False
+
+
+def _ensure_web_lock():
+    global _web_lock_ready
+    if IS_WEB and not _web_lock_ready:
+        try:
+            from platform import window
+            window.eval(_WEB_LOCK_JS)
+            _web_lock_ready = True
+        except Exception:
+            pass
+
+
 def set_mouse_mode(gui):
     try:
         pygame.mouse.set_visible(gui)
-        if not IS_WEB:
+        if IS_WEB:
+            _ensure_web_lock()
+            if _web_lock_ready:
+                from platform import window
+                window._fpsLock.setWant(not gui)
+        else:
             pygame.event.set_grab(not gui)
         pygame.mouse.get_rel()
     except Exception:
         pass
+
+
+def consume_look_delta(dt):
+    """Đọc chuyển động chuột 360 độ không giới hạn cho cả Desktop và Web (kèm xoay tự động sát mép màn hình)."""
+    global _web_pointer_locked
+    rel_dx, rel_dy = pygame.mouse.get_rel()
+    if not IS_WEB:
+        return rel_dx, rel_dy
+
+    _ensure_web_lock()
+    if _web_lock_ready:
+        try:
+            from platform import window
+            raw = str(window._fpsLock.consume())
+            parts = raw.split(",")
+            jdx, jdy, locked = float(parts[0]), float(parts[1]), parts[2] == "1"
+            _web_pointer_locked = locked
+            if locked:
+                return jdx, jdy
+        except Exception:
+            pass
+
+    # Dự phòng khi trình duyệt chưa khóa chuột (hoặc vừa bấm ESC): đưa chuột sát mép trái/phải vẫn xoay tiếp 360° mượt!
+    if pygame.mouse.get_focused():
+        mx, _my = pygame.mouse.get_pos()
+        edge = 48
+        if mx < edge:
+            rel_dx -= (1.0 - mx / float(edge)) * 680.0 * dt
+        elif mx > WIDTH - edge:
+            rel_dx += (1.0 - (WIDTH - mx) / float(edge)) * 680.0 * dt
+    return rel_dx, rel_dy
 
 
 # HỒ SƠ LƯU TRỮ & CẤU HÌNH TRẬN ĐẤU
@@ -1763,13 +1859,13 @@ def handle_keydown(key):
     global running
     in_play = game_state in ("BUY", "ROUND", "ROUND_END")
     free = in_play and not shop_open
-    if key == pygame.K_ESCAPE:
+    if key in (pygame.K_ESCAPE, pygame.K_p):
         if shop_open:
             toggle_shop(False)
         elif game_state == "MENU":
             if match_in_progress():
                 menu_action("resume")
-            elif not IS_WEB:
+            elif not IS_WEB and key == pygame.K_ESCAPE:
                 running = False
         else:
             go_to_menu()
@@ -1883,7 +1979,10 @@ async def main():
         if game_state not in ("MATCH_OVER", "MENU"):
             if not shop_open:
                 update_player_movement(dt)
-                player.look(*pygame.mouse.get_rel(), sensitivity=0.0025 / scope_zoom)
+                mdx, mdy = consume_look_delta(dt)
+                player.look(mdx, mdy, sensitivity=0.0025 / scope_zoom)
+            else:
+                pygame.mouse.get_rel()
             player.update_vertical(dt)
             update_scope(dt)
 
@@ -2001,6 +2100,11 @@ async def main():
                 draw_weapon_slots()
                 if player.alive and not shop_open:
                     draw_pickup_prompt()
+                    if IS_WEB and not _web_pointer_locked:
+                        draw_text(
+                            "Click chuột vào màn hình để khóa tâm xoay 360°  ·  [P]/[ESC]: Tạm dừng",
+                            font_tiny, (255, 225, 120), center=(WIDTH // 2, HEIGHT - 16),
+                        )
                 if game_state == "ROUND_END":
                     draw_round_end_banner()
 
