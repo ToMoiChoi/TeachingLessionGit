@@ -1,0 +1,28 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/audio_widget.css') }}">
+<div id="fifa-player-widget">
+    <div class="f-drag-handle" id="fDragHandle" title="Giữ chuột để kéo di chuyển">⋮⋮</div>
+    <div class="f-info">
+        <span class="f-disc" id="fDisc">💿</span>
+        <div class="f-text">
+            <span class="f-title" id="fTitle">Love Me Again</span>
+            <span class="f-sub">FIFA Soundtrack</span>
+        </div>
+    </div>
+    <div class="f-controls">
+        <select id="fSongSelect" title="Chọn bài hát">
+            <option value="0">John Newman - Love Me Again</option>
+            <option value="1">Glass Animals - Heat Waves</option>
+            <option value="2">Joy Crookes - Feet Don't Fail Me Now</option>
+        </select>
+        <button id="fPrevBtn" title="Bài trước">⏮️</button>
+        <button id="fPlayBtn" title="Phát/Dừng">⏸️</button>
+        <button id="fNextBtn" title="Bài tiếp">⏭️</button>
+        <button id="fShuffleBtn" title="Phát ngẫu nhiên">🔀</button>
+        <div class="f-vol">
+            <span>🔈</span>
+            <input type="range" id="fVolume" min="0" max="1" step="0.05" value="0.35">
+            <span>🔊</span>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/audio_widget.js') }}"></script>

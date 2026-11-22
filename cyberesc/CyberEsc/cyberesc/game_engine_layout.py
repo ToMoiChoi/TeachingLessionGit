@@ -15,10 +15,37 @@ class Platform(pygame.sprite.Sprite):
         super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
 
-    def draw(self, screen, camera_x=0):
+    def draw(self, screen, camera_x=0, accent=CYBER_BLUE, fill=(40, 50, 80)):
         render_rect = self.rect.move(-camera_x, 0)
-        pygame.draw.rect(screen, (40, 50, 80), render_rect, border_radius=5)
-        pygame.draw.rect(screen, CYBER_BLUE, render_rect, 2, border_radius=5)
+        pygame.draw.rect(screen, fill, render_rect, border_radius=5)
+        pygame.draw.rect(screen, accent, render_rect, 2, border_radius=5)
+
+
+def get_map_theme(level, mode="STORY"):
+    """Trả về bảng màu bối cảnh (biome) cho từng màn chơi."""
+    if mode == "ENDLESS":
+        return {"name": "Đấu Trường Vô Tận", "sky": (20, 8, 30), "floor": (44, 28, 60),
+                "accent": CYBER_PINK, "plat": (52, 32, 72)}
+    if level <= 4:
+        return {"name": "Khu Phố Neon", "sky": DARK_BG, "floor": (38, 40, 62),
+                "accent": CYBER_BLUE, "plat": (40, 50, 80)}
+    if level <= 7:
+        return {"name": "Khu Công Nghiệp", "sky": (22, 12, 34), "floor": (48, 32, 62),
+                "accent": CYBER_PINK, "plat": (56, 36, 74)}
+    if level == 8:
+        return {"name": "Lõi Đỏ Thẫm", "sky": (58, 8, 18), "floor": (75, 22, 32),
+                "accent": RED, "plat": (88, 28, 40)}
+    if level <= 10:
+        return {"name": "Phòng Lab Axit", "sky": (8, 28, 22), "floor": (20, 54, 42),
+                "accent": (70, 255, 130), "plat": (24, 68, 52)}
+    if level <= 12:
+        return {"name": "Trạm Băng Giá", "sky": (10, 24, 46), "floor": (30, 54, 82),
+                "accent": (140, 240, 255), "plat": (38, 70, 102)}
+    if level <= 14:
+        return {"name": "Lò Nham Thạch", "sky": (42, 14, 8), "floor": (72, 32, 18),
+                "accent": ORANGE, "plat": (88, 42, 22)}
+    return {"name": "Thành Trì Omega", "sky": (22, 10, 44), "floor": (48, 26, 78),
+            "accent": CYBER_YELLOW, "plat": (64, 34, 96)}
 
 
 def draw_star(screen, cx, cy, r, filled, color=CYBER_YELLOW):
@@ -70,16 +97,12 @@ class LayoutRenderer:
             gp.menu.render(gp.state, gp)
             return
 
-        if gp.mode == "STORY" and gp.current_level == 8:
-            self.screen.fill((70, 5, 15))
-        elif gp.mode == "ENDLESS":
-            self.screen.fill((20, 8, 30))
-        else:
-            self.screen.fill(DARK_BG)
+        theme = get_map_theme(gp.current_level, gp.mode)
+        self.screen.fill(theme["sky"])
         sx = -(gp.camera_x * 0.3) % 800
         self.screen.blit(self.skyline, (sx - 800, FLOOR_Y - 300))
 
-        self.draw_world(gp)
+        self.draw_world(gp, theme)
 
         # Rung màn hình: dịch toàn bộ thế giới (HUD vẽ sau nên không rung)
         if gp.shake > 0:
@@ -111,14 +134,15 @@ class LayoutRenderer:
             pygame.draw.rect(edge, (*color, a), (i * 3, i * 3, 800 - i * 6, 500 - i * 6), 3)
         self.screen.blit(edge, (0, 0))
 
-    def draw_world(self, gp):
+    def draw_world(self, gp, theme=None):
+        theme = theme or get_map_theme(gp.current_level, gp.mode)
         cam_x = gp.camera_x
         scr = self.screen
-        pygame.draw.rect(scr, (40, 40, 60), (-cam_x, FLOOR_Y, gp.level_width, 200))
-        pygame.draw.line(scr, CYBER_BLUE, (-cam_x, FLOOR_Y), (gp.level_width - cam_x, FLOOR_Y), 2)
+        pygame.draw.rect(scr, theme["floor"], (-cam_x, FLOOR_Y, gp.level_width, 200))
+        pygame.draw.line(scr, theme["accent"], (-cam_x, FLOOR_Y), (gp.level_width - cam_x, FLOOR_Y), 2)
 
         for plat in gp.platforms:
-            plat.draw(scr, cam_x)
+            plat.draw(scr, cam_x, accent=theme["accent"], fill=theme["plat"])
         if gp.checkpoint:
             gp.checkpoint.draw(scr, cam_x)
 
@@ -150,6 +174,10 @@ class LayoutRenderer:
                 pygame.draw.circle(scr, (20, 60, 20), ren.center, 6, 2)
                 if (b.spin // 4) % 2 == 0:
                     pygame.draw.circle(scr, RED, ren.center, 2)
+            elif getattr(b, "plasma", False):
+                pygame.draw.circle(scr, (190, 80, 255), ren.center, 8)
+                pygame.draw.circle(scr, (240, 200, 255), ren.center, 4)
+                pygame.draw.circle(scr, WHITE, ren.center, 2)
             elif getattr(b, "image", None) is not None:
                 scr.blit(b.image, ren)
             else:
@@ -161,13 +189,16 @@ class LayoutRenderer:
             else:
                 pygame.draw.rect(scr, RED, ren)
 
-        # Laser
+        # Laser / Railgun
         for beam in gp.beams:
-            a = beam["life"] / 10
+            max_life = 14 if beam.get("thick", 9) > 10 else 10
+            a = beam["life"] / max_life
             (x1, y1), (x2, y2) = beam["p1"], beam["p2"]
             p1, p2 = (x1 - cam_x, y1), (x2 - cam_x, y2)
-            pygame.draw.line(scr, CYBER_BLUE, p1, p2, max(1, int(9 * a)))
-            pygame.draw.line(scr, WHITE, p1, p2, max(1, int(3 * a)))
+            col = beam.get("color", CYBER_BLUE)
+            thick = beam.get("thick", 9)
+            pygame.draw.line(scr, col, p1, p2, max(1, int(thick * a)))
+            pygame.draw.line(scr, WHITE, p1, p2, max(1, int(max(3, thick // 3) * a)))
 
         # Vòng nổ
         for bl in gp.blasts:
@@ -223,7 +254,7 @@ class LayoutRenderer:
         hp_t = self.small.render(f"HP {max(0, p.hp)}/{p.max_hp}", True, WHITE)
         scr.blit(hp_t, (16, 10))
 
-        # Súng: các ô theo phím 1-5
+        # Súng: các ô theo phím 1-8
         from weapon import WEAPON_KEYS, WEAPON_LIST
         x = 10
         for i, key in enumerate(WEAPON_KEYS):
@@ -231,27 +262,30 @@ class LayoutRenderer:
                 continue
             w = WEAPON_LIST[key]
             active = key == gp.current_weapon_key
-            box = pygame.Rect(x, 34, 50, 30)
+            box = pygame.Rect(x, 34, 42, 28)
             pygame.draw.rect(scr, (40, 40, 70) if active else (20, 20, 35), box, border_radius=4)
             pygame.draw.rect(scr, CYBER_YELLOW if active else (70, 70, 90), box, 2 if active else 1, border_radius=4)
-            icon = pygame.transform.scale(w.image, (38, max(8, int(38 * w.image.get_height() / w.image.get_width()))))
+            icon_w = 32
+            icon_h = max(7, min(16, int(icon_w * w.image.get_height() / max(1, w.image.get_width()))))
+            icon = pygame.transform.scale(w.image, (icon_w, icon_h))
             scr.blit(icon, (box.centerx - icon.get_width() // 2, box.centery - icon.get_height() // 2 + 2))
             n = self.small.render(str(i + 1), True, CYBER_YELLOW if active else (140, 140, 160))
-            scr.blit(n, (box.x + 3, box.y))
-            x += 54
+            scr.blit(n, (box.x + 2, box.y - 1))
+            x += 45
         w = gp.current_weapon
         ammo_col = ORANGE if w.ammo > 0 else RED
-        scr.blit(self.small.render(f"{w.name}  {w.ammo}/{w.max_ammo}", True, ammo_col), (10, 67))
+        scr.blit(self.small.render(f"{w.name}  {w.ammo}/{w.max_ammo}", True, ammo_col), (10, 65))
 
-        # Coins + màn / wave
-        scr.blit(self.small.render(f"Coins: {gp.coins}", True, CYBER_YELLOW), (10, 86))
+        # Coins + màn / wave + tên khu vực
+        scr.blit(self.small.render(f"Coins: {gp.coins}", True, CYBER_YELLOW), (10, 84))
+        theme = get_map_theme(gp.current_level, gp.mode)
         if gp.mode == "ENDLESS" and gp.endless:
             info = f"WAVE {gp.endless.wave}   ĐIỂM {gp.endless.score}"
-            scr.blit(self.small.render(info, True, CYBER_PINK), (10, 104))
+            scr.blit(self.small.render(info, True, CYBER_PINK), (10, 102))
         else:
             secs = gp.level_frames // 60
-            info = f"Level {gp.current_level}   {secs // 60:02d}:{secs % 60:02d}   Quái còn: {len(gp.enemies) + (1 if gp.boss_group.sprite else 0)}"
-            scr.blit(self.small.render(info, True, CYBER_BLUE), (10, 104))
+            info = f"LV {gp.current_level} ({theme['name']})  {secs // 60:02d}:{secs % 60:02d}  Quái: {len(gp.enemies) + (1 if gp.boss_group.sprite else 0)}"
+            scr.blit(self.small.render(info, True, theme["accent"]), (10, 102))
 
         # Kỹ năng (hồi chiêu)
         from game_engine_gameplay import DASH_CD, SHIELD_CD, SLOW_CD
@@ -337,7 +371,7 @@ class LayoutRenderer:
         s = self.sub_font.render(where, True, (200, 200, 220))
         self.screen.blit(s, (400 - s.get_width() // 2, 150))
         lines = ["A/D chạy  •  W/Space nhảy  •  Chuột trái bắn  •  Chuột phải/J chém (phản đạn)",
-                 "Q lướt  •  E khiên  •  F làm chậm thời gian  •  1-5 / lăn chuột đổi súng"]
+                 "Q lướt  •  E khiên  •  F làm chậm thời gian  •  1-8 / lăn chuột đổi súng"]
         for i, line in enumerate(lines):
             l = self.small.render(line, True, (160, 160, 185))
             self.screen.blit(l, (400 - l.get_width() // 2, 200 + i * 24))

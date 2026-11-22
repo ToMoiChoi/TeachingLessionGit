@@ -14,12 +14,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Get-NetTCPConnecti
 taskkill /f /im FootballManager.exe >nul 2>&1
 taskkill /f /im run.exe >nul 2>&1
 
-:: [2] Kiem tra thu vien can thiet
-echo [2/3] Dang kiem tra thu vien...
-python -c "import flask, flask_sqlalchemy" >nul 2>&1
+:: [2] Xac dinh trinh thong dich Python (uu tien .venv cuc bo)
+set "PY_EXE=python"
+if exist ".venv\Scripts\python.exe" set "PY_EXE=.venv\Scripts\python.exe"
+
+echo [2/3] Dang kiem tra thu vien (%PY_EXE%)...
+"%PY_EXE%" -c "import flask, flask_sqlalchemy" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Dang cai dat cac thu vien can thiet...
-    python -m pip install -r requirements.txt --disable-pip-version-check
+    set "DISABLE_SQLALCHEMY_CEXT=1"
+    "%PY_EXE%" -m pip install -r requirements.txt --disable-pip-version-check
 )
 
 :: [3] Khoi chay Game Server (app.py se tu dong mo trinh duyet)
@@ -32,7 +36,7 @@ echo   Vui long khong dong cua so nay trong khi choi game!
 echo ========================================================
 echo.
 
-python app.py
+"%PY_EXE%" app.py
 if %errorlevel% neq 0 (
     echo.
     echo [LOI] Khong the khoi chay game!

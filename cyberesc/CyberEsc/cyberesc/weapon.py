@@ -6,7 +6,9 @@ from config import CYBER_YELLOW, CYBER_PINK, CYBER_BLUE, ORANGE
 # --- BẢNG MÀU VÀ NGUYÊN MẪU MODEL VŨ KHÍ (PIXEL ART) ---
 COLOR_MAP = {
     '#': (20, 20, 25),       # Viền ngoài
-    'C': (0, 220, 255),     # Lõi năng lượng
+    'C': (0, 220, 255),     # Lõi năng lượng xanh
+    'P': (255, 0, 160),     # Lõi năng lượng hồng/plasma
+    'Y': (255, 220, 0),     # Chi tiết vàng neon
     'X': (220, 220, 235),   # Thân súng kim loại
     'D': (100, 105, 115),   # Tay cầm / Chi tiết tối
     'G': (70, 75, 85),      # Ốp lót dưới
@@ -50,6 +52,17 @@ ASSAULT_RIFLE_PIXELS = [
     "..##....................",
 ]
 
+SMG_PIXELS = [
+    "....................",
+    "...############.....",
+    "..#XXCCCCCCCCXX###..",
+    ".#XXXXXXXXXXXXXXXX#.",
+    ".####DD####GGGG####.",
+    "....#DD#...#GG#.....",
+    "....#DD#...#GG#.....",
+    ".....##.....##......",
+]
+
 LASER_PIXELS = [
     "..........................",
     "...######.................",
@@ -76,6 +89,31 @@ GRENADE_PIXELS = [
     "....##................",
 ]
 
+PLASMA_PIXELS = [
+    "........................",
+    "..########..............",
+    ".#XXPPPPPP#############.",
+    "#XXPPPPPPPPXXPPPPXXXXXP#",
+    "#XXPPPPPPPPXXPPPPXXXXXP#",
+    ".#XXPPPPPP#############.",
+    "..###DD###GGGG#.........",
+    "....#DD#..#####.........",
+    ".....##.................",
+]
+
+RAILGUN_PIXELS = [
+    "............................",
+    "..#########.................",
+    ".#XXYYYYYYY################.",
+    "#XXYYPPPPPPYYYYYYYYYYYYYYYY#",
+    "#XXYYPPPPPPYYYYYYYYYYYYYYYY#",
+    ".#XXYYYYYYY################.",
+    "...#DD#..#GGGG#.............",
+    "...#DD#..######.............",
+    "....##......................",
+]
+
+
 def create_weapon_surface(pixel_data, scale=2, palette=COLOR_MAP):
     height = len(pixel_data)
     width = max(len(row) for row in pixel_data)
@@ -90,18 +128,25 @@ def create_weapon_surface(pixel_data, scale=2, palette=COLOR_MAP):
 
 
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, x, y, dx, dy, damage=20, color=CYBER_YELLOW, size=(10, 4)):
+    def __init__(self, x, y, dx, dy, damage=20, color=CYBER_YELLOW, size=(10, 4), pierce=0, plasma=False):
         super().__init__()
         self.rect = pygame.Rect(x, y, size[0], size[1])
+        self.fx = float(x)
+        self.fy = float(y)
         self.dx = dx
         self.dy = dy
         self.damage = damage
         self.color = color
+        self.pierce = pierce
+        self.plasma = plasma
+        self.hit_ids = set()
 
     def update(self):
-        self.rect.x += self.dx
-        self.rect.y += self.dy
-        if self.rect.x < -100 or self.rect.x > 2500 or self.rect.y < -100 or self.rect.y > 700:
+        self.fx += self.dx
+        self.fy += self.dy
+        self.rect.x = int(self.fx)
+        self.rect.y = int(self.fy)
+        if self.rect.x < -100 or self.rect.x > 2600 or self.rect.y < -100 or self.rect.y > 700:
             self.kill()
 
 
@@ -111,7 +156,6 @@ class Grenade(Bullet):
 
     def __init__(self, x, y, dx, dy, damage):
         super().__init__(x, y, dx, dy, damage=damage, color=(120, 255, 90), size=(10, 10))
-        self.fx, self.fy = float(x), float(y)
         self.radius = 95
         self.spin = 0
 
@@ -121,7 +165,7 @@ class Grenade(Bullet):
         self.fy += self.dy
         self.rect.x, self.rect.y = int(self.fx), int(self.fy)
         self.spin += 1
-        if self.rect.x < -100 or self.rect.x > 2500 or self.rect.y > 700:
+        if self.rect.x < -100 or self.rect.x > 2600 or self.rect.y > 700:
             self.kill()
 
 
@@ -137,18 +181,17 @@ class Weapon:
         self.ammo = max_ammo
 
         # Khởi tạo model hình ảnh (self.image) theo từng loại súng
-        if self.type == "BLASTER":
-            self.image = create_weapon_surface(PISTOL_PIXELS, scale=2)
-        elif self.type == "SHOTGUN":
-            self.image = create_weapon_surface(SHOTGUN_PIXELS, scale=2)
-        elif self.type == "ASSAULT_RIFLE":
-            self.image = create_weapon_surface(ASSAULT_RIFLE_PIXELS, scale=2)
-        elif self.type == "LASER":
-            self.image = create_weapon_surface(LASER_PIXELS, scale=2)
-        elif self.type == "GRENADE":
-            self.image = create_weapon_surface(GRENADE_PIXELS, scale=2)
-        else:
-            self.image = create_weapon_surface(PISTOL_PIXELS, scale=2)
+        pixel_map = {
+            "BLASTER": PISTOL_PIXELS,
+            "SHOTGUN": SHOTGUN_PIXELS,
+            "ASSAULT_RIFLE": ASSAULT_RIFLE_PIXELS,
+            "SMG": SMG_PIXELS,
+            "LASER": LASER_PIXELS,
+            "GRENADE": GRENADE_PIXELS,
+            "PLASMA": PLASMA_PIXELS,
+            "RAILGUN": RAILGUN_PIXELS,
+        }
+        self.image = create_weapon_surface(pixel_map.get(self.type, PISTOL_PIXELS), scale=2)
 
     def update(self):
         if self.cooldown > 0:
@@ -196,29 +239,56 @@ class Weapon:
             bullet = Bullet(x, y, p_dx, p_dy, damage=total_dmg, color=CYBER_PINK, size=(12, 3))
             bullet_group.add(bullet)
 
-        # 4. LASER: tia xuyên thấu tức thời (gameplay tính sát thương theo đường thẳng)
-        elif self.type == "LASER":
-            self.last_beam = (x, y, dir_x, dir_y, total_dmg)
+        # 4. SMG: Tốc độ bắn siêu nhanh, đạn xanh neon
+        elif self.type == "SMG":
+            base_angle = math.atan2(dir_y, dir_x)
+            spread_angle = base_angle + math.radians(random.uniform(-6, 6))
+            speed = 18
+            p_dx = math.cos(spread_angle) * speed
+            p_dy = math.sin(spread_angle) * speed
+            bullet = Bullet(x, y, p_dx, p_dy, damage=total_dmg, color=CYBER_BLUE, size=(10, 3))
+            bullet_group.add(bullet)
 
-        # 5. GRENADE: lựu đạn bay vòng cung
+        # 5. LASER: tia xuyên thấu tức thời (gameplay tính sát thương theo đường thẳng)
+        elif self.type == "LASER":
+            self.last_beam = (x, y, dir_x, dir_y, total_dmg, "LASER")
+
+        # 6. GRENADE: lựu đạn bay vòng cung
         elif self.type == "GRENADE":
             speed = 11
             bullet_group.add(Grenade(x, y, dir_x * speed, dir_y * speed - 3, total_dmg))
+
+        # 7. PLASMA: cầu năng lượng lớn, xuyên tối đa 2 mục tiêu
+        elif self.type == "PLASMA":
+            speed = 13
+            bullet = Bullet(x - 4, y - 4, dir_x * speed, dir_y * speed,
+                            damage=total_dmg, color=(200, 90, 255), size=(14, 14), pierce=2, plasma=True)
+            bullet_group.add(bullet)
+
+        # 8. RAILGUN: tia siêu thanh xuyên thấu cực mạnh
+        elif self.type == "RAILGUN":
+            self.last_beam = (x, y, dir_x, dir_y, total_dmg, "RAILGUN")
 
         return True, self.ammo_cost
 
 
 # Súng mua thêm trong cửa hàng (tab VŨ KHÍ): tên khóa -> (giá, mô tả)
 SHOP_WEAPONS = {
-    "Laser": (800, "Tia xuyên thấu mọi quái trên đường bắn"),
+    "SMG": (550, "Bắn siêu tốc, băng đạn lớn, giữ chuột liên thanh"),
+    "Laser": (800, "Tia xuyên thấu mọi quái & khiên trên đường bắn"),
     "Grenade": (1200, "Lựu đạn nổ lan, gây sát thương diện rộng"),
+    "Plasma": (1500, "Cầu Plasma sát thương cao, xuyên qua 2 mục tiêu"),
+    "Railgun": (2200, "Tia siêu thanh xuyên phá toàn màn hình cực mạnh"),
 }
-WEAPON_KEYS = ["Blaster", "Shotgun", "Rifle", "Laser", "Grenade"]   # phím 1..5
+WEAPON_KEYS = ["Blaster", "Shotgun", "Rifle", "SMG", "Laser", "Grenade", "Plasma", "Railgun"]   # phím 1..8
 
 WEAPON_LIST = {
     "Blaster": Weapon(name="Blaster", damage=20, fire_rate=15, ammo_cost=1, weapon_type="BLASTER", max_ammo=18),
     "Shotgun": Weapon(name="Shotgun", damage=45, fire_rate=40, ammo_cost=1, weapon_type="SHOTGUN", max_ammo=7),
     "Rifle": Weapon(name="Assault Rifle", damage=12, fire_rate=5, ammo_cost=1, weapon_type="ASSAULT_RIFLE", max_ammo=25),
+    "SMG": Weapon(name="Cyber Dual-SMG", damage=11, fire_rate=4, ammo_cost=1, weapon_type="SMG", max_ammo=40),
     "Laser": Weapon(name="Laser Lance", damage=38, fire_rate=32, ammo_cost=1, weapon_type="LASER", max_ammo=10),
     "Grenade": Weapon(name="Grenade Launcher", damage=70, fire_rate=50, ammo_cost=1, weapon_type="GRENADE", max_ammo=6),
+    "Plasma": Weapon(name="Plasma Cannon", damage=58, fire_rate=28, ammo_cost=1, weapon_type="PLASMA", max_ammo=12),
+    "Railgun": Weapon(name="Hyper Railgun", damage=95, fire_rate=48, ammo_cost=1, weapon_type="RAILGUN", max_ammo=8),
 }

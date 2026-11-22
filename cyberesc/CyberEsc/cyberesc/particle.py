@@ -20,6 +20,19 @@ class ParticleManager:
             py = y
             self.particles.append([px, py, random.uniform(-2, 2), random.uniform(-1, 0), random.randint(2, 4), 15, (200, 200, 200)])
 
+    def add_landing_dust(self, x, y, intensity=1.0, color=(200, 225, 245)):
+        """Bụi tiếp đất tỏa sang 2 bên mạnh dần theo vận tốc rơi."""
+        count = max(6, min(18, int(8 * intensity)))
+        for i in range(count):
+            side = -1 if i % 2 == 0 else 1
+            vx = side * random.uniform(1.2, 3.8 * min(1.8, intensity))
+            vy = random.uniform(-2.2, -0.4) * min(1.5, intensity)
+            px = x + random.randint(-12, 12)
+            py = y - random.randint(0, 3)
+            size = random.randint(2, 5 if intensity >= 1.2 else 4)
+            life = random.randint(14, 24)
+            self.particles.append([px, py, vx, vy, size, life, color])
+
     def add_death_explosion(self, x, y):
         """Vụ nổ khi người chơi chết: mảnh neon văng ra mọi hướng."""
         import math

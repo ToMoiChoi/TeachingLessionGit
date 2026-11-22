@@ -29,7 +29,8 @@ DIFFICULTIES = {
     "HARD": {"name": "KHÓ", "enemy_hp": 1.35, "enemy_dmg": 1.5, "coins": 1.4, "color": RED},
 }
 DIFF_ORDER = ["EASY", "NORMAL", "HARD"]
-BOSS_LEVELS = {4, 6, 8}
+MAX_LEVEL = 16
+BOSS_LEVELS = {4, 6, 8, 10, 12, 14, 16}
 
 # Kỹ năng (đơn vị: khung hình, 60 khung = 1 giây)
 SHIELD_TIME, SHIELD_CD = 150, 480
@@ -132,7 +133,7 @@ class GameplayManager:
 
         # Nạp các màn từ thư mục levels/
         self.level_modules = {}
-        for lvl_id in range(1, 9):
+        for lvl_id in range(1, MAX_LEVEL + 1):
             try:
                 self.level_modules[lvl_id] = __import__(f"levels.lv{lvl_id}", fromlist=[f"lv{lvl_id}"])
             except ImportError as e:
@@ -243,6 +244,25 @@ class GameplayManager:
     # ==================================================================
     # BẮT ĐẦU MÀN
     # ==================================================================
+    def sync_player_cosmetics(self):
+        """Đồng bộ ngay ngoại hình & chỉ số từ CosmeticManager sang Player (dùng cho Preview & Gameplay)."""
+        p = self.player
+        buffs = self.cosmetic_mgr.get_total_buffs()
+        p.max_hp = 100 + (self.hp_lvl - 1) * 10 + buffs.get("hp", 0)
+        p.speed = 5 + (self.speed_lvl - 1) * 0.3 + buffs.get("speed", 0)
+        p.jump_power = p.base_jump_power - buffs.get("jump_bonus", 0.0)
+        p.apply_cosmetics(
+            color=buffs.get("body_color", CYBER_BLUE),
+            head_visual=buffs.get("head_visual", "NONE"),
+            head_color=buffs.get("head_color", WHITE),
+            body_style=buffs.get("body_style", "BASIC"),
+            back_visual=buffs.get("back_visual", "NONE"),
+            back_color=buffs.get("back_color", CYBER_BLUE),
+            acc_visual=buffs.get("acc_visual", "NONE"),
+            acc_color=buffs.get("acc_color", CYBER_YELLOW),
+        )
+        return buffs
+
     def _reset_world(self):
         for g in (self.player_bullets, self.enemy_bullets, self.enemies, self.boss_group,
                   self.platforms, self.powerups, self.coin_pickups):
@@ -273,10 +293,11 @@ class GameplayManager:
         p.rect.topleft = (100, 300)
         p.vel_x = p.vel_y = 0
         p.invincible_timer = 0
-        buffs = self.cosmetic_mgr.get_total_buffs()
-        p.max_hp = 100 + (self.hp_lvl - 1) * 10 + buffs.get("hp", 0)
+        p.on_ground = p.was_on_ground = False
+        p.just_landed = False
+        p.landing_timer = p.coyote_timer = p.jump_buffer_timer = 0
+        buffs = self.sync_player_cosmetics()
         p.hp = p.max_hp
-        p.speed = 5 + (self.speed_lvl - 1) * 0.3 + buffs.get("speed", 0)
         for w in self.available_weapons.values():
             if not hasattr(w, "base_max_ammo"):
                 w.base_max_ammo = w.max_ammo
@@ -285,7 +306,6 @@ class GameplayManager:
             w.cooldown = 0
         if self.current_weapon_key not in self.weapons_owned:
             self.switch_weapon("Blaster")
-        p.apply_cosmetics(buffs.get("body_color", CYBER_BLUE), buffs.get("head_visual", "NONE"))
 
     def start_level(self, level_num):
         self.mode = "STORY"
@@ -307,7 +327,11 @@ class GameplayManager:
             elif kind == "tele":
                 self.enemies.add(TeleportEnemy(x, y))
             elif kind == "mothership" and not self.boss_group.sprite:
-                self.boss_group.add(MothershipBoss(x, y))
+                mb = MothershipBoss(x, y)
+                if level_num >= 12:
+                    mb.max_hp = 2000
+                    mb.hp = 2000
+                self.boss_group.add(mb)
         self.checkpoint = Checkpoint(self.checkpoint_x.get(level_num, 1200))
         self.apply_difficulty()
 
@@ -445,11 +469,16 @@ class GameplayManager:
 
         if self.endless:
             self.endless.score += 250 if is_boss else 10
+        lifesteal = self.cosmetic_mgr.get_total_buffs().get("lifesteal", 0)
+        if lifesteal > 0 and self.player.hp > 0:
+            heal = lifesteal * (3 if is_boss else 1)
+            self.player.hp = min(self.player.max_hp, self.player.hp + heal)
+            self.add_floater(self.player.rect.centerx, self.player.rect.top - 12, f"+{heal} HP", GREEN)
         self.mission_event("kill")
         if is_boss:
             self.mission_event("boss")
             self.add_buff("BOSS ĐÃ BỊ HẠ!", ORANGE, 200)
-        if getattr(enemy, "last_hit", "") in ("LASER", "GRENADE"):
+        if getattr(enemy, "last_hit", "") in ("LASER", "GRENADE", "RAILGUN", "PLASMA"):
             self.mission_event("special_kill")
 
     # ==================================================================
@@ -478,10 +507,11 @@ class GameplayManager:
     def perform_shield(self):
         if self.shield_cd > 0:
             return
-        self.shield_timer = SHIELD_TIME
+        dur = SHIELD_TIME + self.cosmetic_mgr.get_total_buffs().get("shield_bonus", 0)
+        self.shield_timer = dur
         self.shield_cd = SHIELD_CD
         sfx.play("electric_zap.wav", 0.5)
-        self.add_buff("KHIÊN NĂNG LƯỢNG", CYBER_BLUE, SHIELD_TIME)
+        self.add_buff("KHIÊN NĂNG LƯỢNG", CYBER_BLUE, dur)
 
     def perform_slow(self):
         if self.slow_cd > 0:
@@ -537,26 +567,37 @@ class GameplayManager:
             return
         w.ammo -= used
         self.player.shoot_directional()
-        if w.type == "LASER":
+        if w.type in ("LASER", "RAILGUN"):
             self.fire_laser(*w.last_beam)
-        sound = {"BLASTER": ("pistol.wav", 0.35), "SHOTGUN": ("shotgun.wav", 0.5),
-                 "ASSAULT_RIFLE": ("pistol.wav", 0.2), "LASER": ("laser_pulse.wav", 0.5),
-                 "GRENADE": ("fireball.wav", 0.5)}.get(w.type)
+        sound = {
+            "BLASTER": ("pistol.wav", 0.35),
+            "SHOTGUN": ("shotgun.wav", 0.5),
+            "ASSAULT_RIFLE": ("pistol.wav", 0.2),
+            "SMG": ("pistol.wav", 0.16),
+            "LASER": ("laser_pulse.wav", 0.5),
+            "GRENADE": ("fireball.wav", 0.5),
+            "PLASMA": ("electric_zap.wav", 0.45),
+            "RAILGUN": ("laser_pulse.wav", 0.75),
+        }.get(w.type)
         if sound:
             sfx.play(*sound)
-        if w.type in ("SHOTGUN", "GRENADE"):
+        if w.type in ("SHOTGUN", "GRENADE", "PLASMA"):
             self.shake_screen(3)
+        elif w.type == "RAILGUN":
+            self.shake_screen(6)
 
-    def fire_laser(self, x, y, dx, dy, dmg):
-        end = (x + dx * 900, y + dy * 900)
+    def fire_laser(self, x, y, dx, dy, dmg, kind="LASER"):
+        end = (x + dx * 1100, y + dy * 1100)
         targets = list(self.enemies)
         if self.boss_group.sprite:
             targets.append(self.boss_group.sprite)
+        beam_col = CYBER_PINK if kind == "RAILGUN" else CYBER_BLUE
         for e in targets:
             if e.rect.clipline((x, y), end):
-                self.damage_enemy(e, dmg, color=CYBER_BLUE, source="LASER")   # xuyên cả khiên
-        self.beams.append({"p1": (x, y), "p2": end, "life": 10})
-        self.shake_screen(2)
+                self.damage_enemy(e, dmg, color=beam_col, source=kind)   # xuyên cả khiên
+        self.beams.append({"p1": (x, y), "p2": end, "life": 14 if kind == "RAILGUN" else 10,
+                           "color": beam_col, "thick": 14 if kind == "RAILGUN" else 9})
+        self.shake_screen(5 if kind == "RAILGUN" else 2)
 
     def perform_slash_attack(self):
         if not self.player.can_slash():
@@ -672,13 +713,13 @@ class GameplayManager:
         reward = int((50 + lvl * 25) * self.get_coin_multiplier())
         self.coins += reward + star_bonus
         self.stars[str(lvl)] = new_best
-        self.max_unlocked_level = max(self.max_unlocked_level, min(8, lvl + 1))
+        self.max_unlocked_level = max(self.max_unlocked_level, min(MAX_LEVEL, lvl + 1))
         self.clear_stats = {
             "level": lvl, "stars": stars, "seconds": int(secs), "par": par_time(lvl),
             "kills": self.level_kills, "deaths": self.deaths_in_level,
             "reward": reward, "star_bonus": star_bonus,
             "earned": max(0, self.coins - self.level_coins_start),
-            "final": lvl == 8,
+            "final": lvl == MAX_LEVEL,
         }
         self.mission_event("clear")
         if stars == 3 and prev < 3:
@@ -721,7 +762,7 @@ class GameplayManager:
             y = 300
         elif self.state == "LEVEL_CLEAR":
             btns = []
-            if self.current_level < 8:
+            if self.current_level < MAX_LEVEL:
                 btns.append(("next", "[N] MÀN TIẾP", GREEN))
             btns += [("retry", "[R] CHƠI LẠI", CYBER_YELLOW), ("menu", "[M] VỀ MENU", CYBER_BLUE)]
             y = 400
@@ -754,13 +795,13 @@ class GameplayManager:
         elif key == "resume":
             self.state = "GAME"
         elif key == "next":
-            self.start_level(min(8, self.current_level + 1))
+            self.start_level(min(MAX_LEVEL, self.current_level + 1))
             self.state = "GAME"
 
     def exit_to_menu(self):
         self.save_progress()
         if self.mode == "ENDLESS":
-            self.start_level(min(self.max_unlocked_level, 8))
+            self.start_level(min(self.max_unlocked_level, MAX_LEVEL))
         self.touch.reset()
         self.state = "MENU"
 
@@ -831,11 +872,13 @@ class GameplayManager:
                 self.perform_slash_attack()
             elif k == pygame.K_k:
                 self.perform_shoot(self.auto_aim_target())
-            elif pygame.K_1 <= k <= pygame.K_5:
-                self.switch_weapon(WEAPON_KEYS[k - pygame.K_1])
+            elif pygame.K_1 <= k <= pygame.K_8:
+                idx = k - pygame.K_1
+                if idx < len(WEAPON_KEYS):
+                    self.switch_weapon(WEAPON_KEYS[idx])
 
     def do_jump(self):
-        if self.player.on_ground:
+        if self.player.on_ground or self.player.coyote_timer > 0:
             self.particle_mgr.add_jump_dust(self.player.rect.centerx, self.player.rect.bottom)
         self.player.jump()
 
@@ -918,6 +961,14 @@ class GameplayManager:
                 return
         self.player.update(floor_y=FLOOR_Y, platforms=self.platforms, level_width=self.level_width)
 
+        # Hiệu ứng tiếp đất (Landing): bụi, âm thanh bước chân & rung nhẹ khi rơi cao
+        if self.player.just_landed and self.player.land_impact_vy >= 3.5:
+            intensity = min(1.8, self.player.land_impact_vy / 8.0)
+            self.particle_mgr.add_landing_dust(self.player.rect.centerx, self.player.rect.bottom, intensity=intensity)
+            sfx.play("footstep.wav", min(0.5, 0.22 * intensity))
+            if self.player.land_impact_vy >= 12.0:
+                self.shake_screen(2.2)
+
         # Lướt
         if self.dash_timer > 0:
             self.dash_timer -= 1
@@ -929,12 +980,12 @@ class GameplayManager:
             self.particle_mgr.add_hit_particles(self.player.rect.centerx,
                                                 self.player.rect.centery + random.randint(-8, 8), CYBER_PINK, 1)
 
-        # Bắn liên tục: giữ chuột trái với Rifle, hoặc giữ nút BẮN trên điện thoại
+        # Bắn liên tục: giữ chuột trái với Rifle/SMG, hoặc giữ nút BẮN trên điện thoại
         if self.touch.held("shoot"):
             if self.current_weapon.cooldown <= 0:
                 self.perform_shoot(self.auto_aim_target())
         elif (not self.touch.enabled and pygame.mouse.get_pressed()[0]
-              and self.current_weapon.type == "ASSAULT_RIFLE"):
+              and self.current_weapon.type in ("ASSAULT_RIFLE", "SMG")):
             self.perform_shoot()
 
         self.update_camera()
@@ -1030,24 +1081,34 @@ class GameplayManager:
                     self.explode(b.rect.centerx, b.rect.centery, b.radius, b.damage)
                     b.kill()
                 continue
-            source = "PARRY" if getattr(b, "parried", False) else "BULLET"
+            source = "PARRY" if getattr(b, "parried", False) else ("PLASMA" if getattr(b, "plasma", False) else "BULLET")
+            hit_ids = getattr(b, "hit_ids", None)
             for enemy in self.enemies:
                 if not enemy.rect.colliderect(b.rect) or getattr(enemy, "untargetable", False):
                     continue
-                if hasattr(enemy, "is_blocked") and enemy.is_blocked(b.rect.centerx):
+                if hit_ids is not None and id(enemy) in hit_ids:
+                    continue
+                if hasattr(enemy, "is_blocked") and enemy.is_blocked(b.rect.centerx) and not getattr(b, "plasma", False):
                     self.particle_mgr.add_hit_particles(b.rect.centerx, b.rect.centery, CYBER_BLUE, 6)
                     sfx.play("shield_clank.wav", 0.35)
                     self.add_floater(b.rect.centerx, b.rect.top - 6, "CHẶN", CYBER_BLUE)
+                    b.kill()
+                    break
                 else:
                     dmg = b.damage * (1.5 if getattr(enemy, "shield_active", False) else 1)
-                    self.damage_enemy(enemy, dmg, b.rect.centerx, b.rect.centery,
-                                      CYBER_BLUE if source == "PARRY" else CYBER_YELLOW, source)
-                b.kill()
-                break
+                    col = CYBER_BLUE if source == "PARRY" else ((200, 110, 255) if source == "PLASMA" else CYBER_YELLOW)
+                    self.damage_enemy(enemy, dmg, b.rect.centerx, b.rect.centery, col, source)
+                if getattr(b, "pierce", 0) > 0 and hit_ids is not None:
+                    hit_ids.add(id(enemy))
+                    b.pierce -= 1
+                else:
+                    b.kill()
+                    break
             if b.alive() and boss and boss.rect.colliderect(b.rect):
-                self.damage_enemy(boss, b.damage, b.rect.centerx, b.rect.centery,
-                                  CYBER_BLUE if source == "PARRY" else CYBER_YELLOW, source)
-                b.kill()
+                if hit_ids is None or id(boss) not in hit_ids:
+                    col = CYBER_BLUE if source == "PARRY" else ((200, 110, 255) if source == "PLASMA" else CYBER_YELLOW)
+                    self.damage_enemy(boss, b.damage, b.rect.centerx, b.rect.centery, col, source)
+                    b.kill()
 
         # Người chơi trúng đòn (lướt thì miễn nhiễm)
         if self.dash_timer <= 0:
