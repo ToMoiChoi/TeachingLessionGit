@@ -35,6 +35,7 @@ from game.weapon import get_weapon, get_weapon_damage
 from graphics.renderer import Renderer
 from graphics.minimap import Minimap
 from graphics.weapon_skins import get_hud_icon, get_shop_icon
+from graphics.scope_overlay import draw_weapon_scope
 from ui.hud import HUD
 from ui.game_view import GameView
 
@@ -88,6 +89,9 @@ window._fpsLock = window._fpsLock || (function() {
   }, true);
   document.addEventListener('mousedown', function() {
     if (st.want) tryLock();
+  }, true);
+  window.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
   }, true);
   return {
     setWant: function(w) {
@@ -999,7 +1003,7 @@ def draw_menu():
     # 5. Hướng dẫn phím bấm dưới chân trang
     hint = (145, 158, 180)
     draw_text(
-        "WASD: Di chuyển · Chuột/Phím ←→: Ngắm · Chuột trái: Bắn · Chuột phải: Ngắm ADS · [B]: Shop · [N]: Vào trận ngay",
+        "WASD: Di chuyển · Chuột/Phím ←→: Xoay · Chuột trái: Bắn · Chuột phải/[V]: Ngắm Scope · [B]: Shop · [N]: Vào trận",
         font_tiny, hint, center=(cx, HEIGHT - max(32, int(52 * k))),
     )
     draw_text(
@@ -1377,13 +1381,14 @@ def draw_held_item():
 def draw_scope():
     cfg = SCOPE_CONFIG[player.weapon]
     zoom = cfg["levels"][max(1, scope_level) - 1]
-    cx, cy = WIDTH // 2, HEIGHT // 2
-    if not cfg["dark"]:
-        pygame.draw.circle(screen, (255, 60, 60), (cx, cy), 3)
-        pygame.draw.circle(screen, (40, 0, 0), (cx, cy), 3, 1)
-    else:
-        screen.blit(_sniper_scope_surf, (0, 0))
-    draw_text(f"{zoom:.2g}x", font_mid, (220, 255, 180), topright=(WIDTH - 24, 215))
+    draw_weapon_scope(
+        screen,
+        player.weapon,
+        zoom,
+        ads_progress=getattr(player, "ads", 1.0),
+        recoil=getattr(player, "recoil", 0.0),
+        font_zoom=font_small,
+    )
 
 
 fx_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -1692,9 +1697,9 @@ def player_shoot():
             continue
         sx = WIDTH // 2 + math.tan(rel) * renderer.projection_plane
         w_h = getattr(e, "world_height", 70.0)
-        bh = max(10, min(460, int(renderer.projection_plane * w_h / dist)))
+        bh = max(10, min(2800, int(renderer.projection_plane * w_h / max(dist, 12.0))))
         bw = max(8, int(bh * 0.45))
-        foot_y = horizon + int(renderer.projection_plane * 35.0 / max(dist, 1.0))
+        foot_y = horizon + int(renderer.projection_plane * 35.0 / max(dist, 12.0))
         btop = foot_y - bh
         part = e.check_hit_3d(sx, btop, bw, bh, cx, shot_y)
         if part is None and abs(angle_diff(h_ang, shot_angle)) <= math.atan2(e.radius * 1.15, dist):
@@ -1854,6 +1859,16 @@ def draw_round_end_banner():
     pygame.draw.rect(screen, color, (bx, by, int(bw * min(1.0, secs / total_t)), bh), border_radius=4)
 
 
+def toggle_scope_ads():
+    global scope_level
+    if holding_knife():
+        melee_attack(is_right_click=True)
+    elif player.weapon in SCOPE_WEAPONS and held_item is None and player.alive and not player.reloading:
+        n = len(SCOPE_CONFIG[player.weapon]["levels"])
+        scope_level = (scope_level + 1) % (n + 1)
+        player.scoped = scope_level > 0
+
+
 # XỬ LÝ SỰ KIỆN PHÍM & CHUỘT
 def handle_keydown(key):
     global running
@@ -1882,6 +1897,8 @@ def handle_keydown(key):
         cycle_slot(key - pygame.K_0)
     elif key in GRENADE_KEYS and free:
         equip_grenade(GRENADE_KEYS[key])
+    elif key in (pygame.K_v, pygame.K_z) and free:
+        toggle_scope_ads()
     elif key in (pygame.K_x, pygame.K_h) and in_play:
         player.righthand = not getattr(player, "righthand", True)
         notice("TAY CẦM: PHẢI" if player.righthand else "TAY CẦM: TRÁI", 1.5)
@@ -1931,12 +1948,7 @@ def handle_mouse_down(event):
         if shop_open:
             handle_shop_click(event.pos, button=3)
         elif game_state in ("BUY", "ROUND", "ROUND_END"):
-            if holding_knife():
-                melee_attack(is_right_click=True)
-            elif player.weapon in SCOPE_WEAPONS and held_item is None and player.alive and not player.reloading:
-                n = len(SCOPE_CONFIG[player.weapon]["levels"])
-                scope_level = (scope_level + 1) % (n + 1)
-                player.scoped = scope_level > 0
+            toggle_scope_ads()
 
 
 # VÒNG LẶP GAME BẤT ĐỒNG BỘ (TƯƠNG THÍCH PYGBAG WEB & DESKTOP)
@@ -2090,13 +2102,16 @@ async def main():
                 if player.alive:
                     if held_item:
                         draw_held_item()
-                    elif player.weapon in SCOPE_WEAPONS and getattr(player, "ads", 0.0) > 0.85:
-                        draw_scope()
-                        if SCOPE_CONFIG[player.weapon]["dark"]:
-                            hud.draw(
-                                screen, player, player_score, enemy_score, round_timer,
-                                header_title=header_title, header_sub=header_sub,
-                            )
+                    elif player.weapon in SCOPE_WEAPONS:
+                        cur_ads = getattr(player, "ads", 0.0)
+                        is_sniper_dark = SCOPE_CONFIG[player.weapon]["dark"]
+                        if cur_ads > (0.78 if is_sniper_dark else 0.48):
+                            draw_scope()
+                            if is_sniper_dark:
+                                hud.draw(
+                                    screen, player, player_score, enemy_score, round_timer,
+                                    header_title=header_title, header_sub=header_sub,
+                                )
                 draw_weapon_slots()
                 if player.alive and not shop_open:
                     draw_pickup_prompt()

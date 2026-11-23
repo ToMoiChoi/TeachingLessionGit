@@ -125,7 +125,7 @@ class GameView:
             if corr_dist >= z_buf[col_idx] + 18.0 and line_blocked(px, py, e.x, e.y, walls):
                 continue
             w_h = getattr(e, "world_height", 70.0)
-            size = max(10, min(460, int(proj_plane * w_h / dist)))
+            size = max(10, min(2800, int(proj_plane * w_h / max(dist, 12.0))))
             vis.append(("enemy", dist, sx, size, e))
 
         if dropped_weapons:
@@ -172,7 +172,7 @@ class GameView:
             if itype == "enemy":
                 _, dist, sx, size, e = item
                 bw, bh = max(8, int(size * 0.45)), size
-                foot_y = horizon + int(proj_plane * 35.0 / max(dist, 1.0))
+                foot_y = horizon + int(proj_plane * 35.0 / max(dist, 12.0))
                 btop = foot_y - bh
                 e.draw_roblox_3d(
                     self.screen, sx, btop, bw, bh, self.font_small,

@@ -15,15 +15,14 @@ WEAPON_SKIN_FILES = {
     "M1014": "m1014.png",
     "MAG-7": "mag-7.png",
     "MAG7": "mag-7.png",
-    "AK-47": "vandal.png",
-    "AK47": "vandal.png",
     "VANDAL": "vandal.png",
     "M416": "m416.png",
-    "PHANTOM": "m416.png",
     "GUARDIAN": "guardian.png",
     "M24": "m24.png",
     "AWM": "awm.png",
 }
+
+PROCEDURAL_3D_SKINS = {"AK-47", "AK47", "PHANTOM"}
 
 # Cấu hình kích thước (width) và góc nghiêng (độ) cho từng súng trên tay (Viewmodel)
 # Góc âm xoay ngược chiều kim đồng hồ trong Pygame, giúp nòng súng hướng chéo lên tâm ngắm
@@ -91,6 +90,13 @@ def load_raw_skin(weapon_id):
     w_key = str(weapon_id).upper()
     if w_key in _raw_skins and _raw_skins[w_key] is not None:
         return _raw_skins[w_key]
+
+    if w_key in PROCEDURAL_3D_SKINS:
+        from graphics import gun3d
+        surf = gun3d.render_side_icon(w_key)
+        if surf is not None:
+            _raw_skins[w_key] = surf
+            return surf
 
     fn = WEAPON_SKIN_FILES.get(w_key)
     if not fn:

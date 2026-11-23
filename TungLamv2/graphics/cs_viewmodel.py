@@ -22,12 +22,12 @@ class CSViewModel:
 
     # Góc cầm súng chuẩn FPS chiến thuật (CS2 / Valorant viewmodel_fov 60):
     # ((x sang phải, y xuống dưới, z ra trước), yaw chĩa về tâm, pitch nâng mũi, roll nghiêng tự nhiên)
-    POSE_PISTOL = ((0.185, 0.148, 0.60), -9.5, 2.2, -3.5)
-    POSE_SMG = ((0.215, 0.165, 0.68), -10.5, 2.0, -3.5)
-    POSE_SHOTGUN = ((0.220, 0.172, 0.74), -10.0, 2.2, -3.0)
-    POSE_RIFLE = ((0.225, 0.168, 0.78), -10.5, 2.0, -3.5)
-    POSE_SNIPER = ((0.230, 0.172, 0.84), -9.8, 1.8, -3.0)
-    POSE_KNIFE = ((0.175, 0.155, 0.34), -26.0, 9.0)
+    POSE_PISTOL = ((0.182, 0.126, 0.58), -10.5, 2.5, -4.0)
+    POSE_SMG = ((0.215, 0.152, 0.68), -11.0, 2.2, -3.8)
+    POSE_SHOTGUN = ((0.220, 0.148, 0.74), -11.0, 2.4, -3.5)
+    POSE_RIFLE = ((0.225, 0.156, 0.78), -11.2, 2.2, -3.8)
+    POSE_SNIPER = ((0.230, 0.160, 0.84), -10.5, 2.0, -3.2)
+    POSE_KNIFE = ((0.175, 0.142, 0.36), -26.0, 9.0)
 
     ADS_PITCH = 0.0
 
@@ -331,7 +331,7 @@ class CSViewModel:
         righthand = getattr(player, "righthand", True)
         recoil = max(0.0, float(getattr(player, "recoil", 0.0)))
 
-        if cur_w in self.SNIPERS and getattr(player, "ads", 0.0) > 0.85:
+        if cur_w in self.SNIPERS and getattr(player, "ads", 0.0) > 0.78:
             self.muzzle_pos = (self.sw // 2, self.sh // 2)
             return self.muzzle_pos
 
